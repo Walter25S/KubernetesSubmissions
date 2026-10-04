@@ -13,3 +13,10 @@ spec:
                 name: log-output-svc
                 port:
                   number: 2345
+          - path: /pingpong
+            pathType: Prefix
+            backend:
+              service:
+                name: ping-pong-svc
+                port:
+                  number: 2346

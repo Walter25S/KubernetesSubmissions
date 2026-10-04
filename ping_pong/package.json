@@ -1,0 +1,10 @@
+{
+  "name": "ping-pong",
+  "version": "1.0.0",
+  "description": "Responds with pong N and counts the requests",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "MIT"
+}

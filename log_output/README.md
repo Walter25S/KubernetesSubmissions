@@ -42,6 +42,9 @@ kubectl logs -f deployment/log-output-dep
 `k3d cluster create --port 8082:30080@agent:0 -p 8081:80@loadbalancer --agents 2`,
 open http://localhost:8081.
 
+Since exercise 1.9 the same Ingress also routes `/pingpong` to the
+`ping_pong` app (service `ping-pong-svc`, port 2346).
+
 ## Declarative workflow
 
 The deployment lives in `manifests/deployment.yaml`; no imperative
