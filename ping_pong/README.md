@@ -161,3 +161,4 @@ the cluster when it is not needed: `gcloud container clusters delete <name> --zo
 - 3.3 (exposed with the Gateway API, `HealthCheckPolicy`)
 - 3.4 (answers in `/`; the `HTTPRoute` rewrites `/pingpong` to `/`)
 - 4.1 (readiness probe: ready only when connected to the database)
+- 4.4 (canary release with Argo Rollouts, see [rollout/](rollout/README.md))

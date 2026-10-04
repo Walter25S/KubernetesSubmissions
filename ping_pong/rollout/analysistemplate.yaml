@@ -1,0 +1,28 @@
+# Watches the CPU used by ALL the containers of the namespace (exercise 4.4). It is used by the
+# canary rollout of ping-pong: if the namespace uses more CPU than the limit while the new version
+# is being released, the analysis fails and Argo Rollouts goes back to the previous version.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: namespace-cpu
+  namespace: exercises
+spec:
+  args:
+    # the limit, in CPU cores (0.05 = 50 millicores). The namespace uses about 0.007 when idle
+    # (measured in Prometheus), so this leaves room for the start of the new pods but catches a
+    # version that makes the CPU go up. The rollout can override it with an argument.
+    - name: max-cpu-cores
+      value: "0.05"
+  metrics:
+    - name: namespace-cpu-usage
+      interval: 30s
+      count: 10 # 10 measurements, one every 30 s: the analysis lasts 5 minutes
+      failureLimit: 0 # one measurement above the limit is enough to fail
+      successCondition: result < {{args.max-cpu-cores}}
+      provider:
+        prometheus:
+          # the Service of the Prometheus installed with Helm (release "prom", namespace "prometheus")
+          address: http://prom-prometheus-server.prometheus.svc.cluster.local:80
+          # sum of the CPU usage rate of every container of the namespace, over the last 5 minutes
+          query: |
+            scalar(sum(rate(container_cpu_usage_seconds_total{namespace="exercises", container!=""}[5m])))
