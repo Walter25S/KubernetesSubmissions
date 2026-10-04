@@ -112,6 +112,16 @@ gcloud iam workload-identity-pools providers create-oidc github-provider --locat
 gcloud iam service-accounts add-iam-policy-binding github-actions-sa@PROJECT_ID.iam.gserviceaccount.com   --role=roles/iam.workloadIdentityUser   --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/Walter25S/KubernetesSubmissions"
 ```
 
+The pipeline pushes the images, but **the nodes of the cluster are the ones that pull them**,
+and they run as the default Compute Engine service account, which in a new project has no
+access to Artifact Registry. Without this the pods stay in `ImagePullBackOff` with
+`403 Forbidden` in the events of the pod (`kubectl describe pod`). Give the nodes read-only
+access to the repository (only that repository, not the whole project):
+
+```bash
+gcloud artifacts repositories add-iam-policy-binding my-repository --location=us-central1   --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com"   --role=roles/artifactregistry.reader
+```
+
 ### GitHub secrets
 
 In the repository: *Settings -> Secrets and variables -> Actions -> New repository secret*.
