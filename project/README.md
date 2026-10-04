@@ -116,6 +116,55 @@ kubectl describe resourcequota environment-quota -n project   # used / hard
 kubectl describe node <node> | grep -A8 "Allocated resources"
 ```
 
+## Logs and monitoring in GKE (exercise 3.12)
+
+GKE already includes logging and monitoring, there is nothing to install: they are on in the
+cluster (`gcloud container clusters describe dwk-cluster --zone=us-central1-a` shows
+`loggingConfig` with `SYSTEM_COMPONENTS` and **`WORKLOADS`**, which is what sends the output of our
+pods, and `monitoringConfig` with the metrics of the system, pods, deployments and so on). Whatever a
+container writes to stdout/stderr, such as the lines of the backend, is collected by GKE and stored in
+**Cloud Logging**; metrics go to **Cloud Monitoring**. (The Grafana + Loki stack of exercise 2.10 is the
+do-it-yourself version of this and is not needed in GKE.)
+
+### Where to find the logs of the project
+
+1. **From the workload** (the quickest): Google Cloud Console -> *Kubernetes Engine* -> *Workloads* ->
+   the Deployment `todo-backend-dep` (namespace `project`) -> tab **Logs**. This opens the Logs Explorer
+   already filtered. Direct link:
+   [todo-backend-dep logs](https://console.cloud.google.com/kubernetes/deployment/us-central1-a/dwk-cluster/project/todo-backend-dep/logs?project=project-cbd387a3-5a90-4d0f-84b).
+2. **Logs Explorer** (*Logging* -> *Logs Explorer*), with a query. This one shows the todos that were
+   created ([open it with the query filled in](https://console.cloud.google.com/logs/query;query=resource.type%3D%22k8s_container%22%0Aresource.labels.namespace_name%3D%22project%22%0Aresource.labels.container_name%3D%22todo-backend%22%0AtextPayload%3A%22created%20todo%22;duration=PT1H?project=project-cbd387a3-5a90-4d0f-84b)):
+
+   ```
+   resource.type="k8s_container"
+   resource.labels.namespace_name="project"
+   resource.labels.container_name="todo-backend"
+   textPayload:"created todo"
+   ```
+
+   Useful variations: `textPayload:"rejected todo"` for the todos refused by the 140-character limit,
+   or change `container_name` to `todo-app`. The backend also logs every `GET /todos` that the
+   readiness probe makes every 5 seconds; a `NOT textPayload:"GET /todos"` line filters that noise out.
+3. **From the terminal**: `gcloud logging read '<the same query>' --limit=5 --order=desc --freshness=1h`
+   (or `kubectl logs`, which only shows what the pod still has).
+
+The logs of the **environments of the branches** are in the same place: change `namespace_name` to
+the name of the branch.
+
+### The logs when a new todo is created
+
+The backend writes one line per request, with the todo (see exercise 2.10). Creating a todo from the form
+produces, in Cloud Logging:
+
+```
+POST /todos 201 4ms created todo 16: "Logs of a new todo in GKE 17:08:09"
+```
+
+- The text version of the result, read with `gcloud`: [docs/logs-new-todo.txt](docs/logs-new-todo.txt).
+- The picture of the Logs Explorer with that query:
+
+  ![The logs of the project in Google Cloud Logging when a new todo is created](docs/logs-new-todo.png)
+
 ## Deployment pipeline (exercise 3.6)
 
 [../.github/workflows/project.yaml](../.github/workflows/project.yaml) deploys the project
@@ -324,3 +373,4 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 - 3.9 (DBaaS vs DIY comparison)
 - 3.10 (database backup, see ../todo_backup)
 - 3.11 (resource requests and limits, LimitRange and ResourceQuota)
+- 3.12 (logs and monitoring in GKE)
