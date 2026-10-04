@@ -59,8 +59,8 @@ spec:
                   mountPath: /backup
               resources:
                 requests:
-                  cpu: 50m
-                  memory: 64Mi
+                  cpu: 10m
+                  memory: 32Mi
                 limits:
                   cpu: 200m
                   memory: 256Mi
@@ -88,8 +88,8 @@ spec:
                   mountPath: /backup
               resources:
                 requests:
-                  cpu: 50m
-                  memory: 128Mi
+                  cpu: 20m
+                  memory: 96Mi
                 limits:
                   cpu: 500m
                   memory: 384Mi

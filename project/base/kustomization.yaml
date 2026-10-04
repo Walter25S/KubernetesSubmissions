@@ -5,6 +5,8 @@ kind: Kustomization
 # not a file outside of its own folder, which is why the apps are referenced as folders.
 resources:
   - namespace.yaml
+  - limitrange.yaml
+  - resourcequota.yaml
   - ../../todo_app
   - ../../todo_backend
   - ../../todo_cronjob

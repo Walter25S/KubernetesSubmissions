@@ -31,10 +31,11 @@ spec:
               port: 3000
             initialDelaySeconds: 2
             periodSeconds: 5
+          # measured with `kubectl top pods`: 1-4m CPU and 12Mi of memory
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: 10m
+              memory: 24Mi
             limits:
               cpu: 200m
-              memory: 128Mi
+              memory: 96Mi

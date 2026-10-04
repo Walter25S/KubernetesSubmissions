@@ -22,8 +22,8 @@ spec:
                     name: todo-cronjob-config
               resources:
                 requests:
-                  cpu: 10m
-                  memory: 32Mi
+                  cpu: 5m
+                  memory: 24Mi
                 limits:
                   cpu: 100m
-                  memory: 64Mi
+                  memory: 96Mi

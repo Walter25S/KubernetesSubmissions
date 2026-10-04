@@ -1,0 +1,17 @@
+# Applied to every container of the namespace that does not set its own requests and limits
+# (for example a debug pod started with kubectl run). Without this, the quota below would
+# reject such pods because they would have no requests/limits.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-resources
+  namespace: project
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 10m
+        memory: 32Mi
+      default:
+        cpu: 200m
+        memory: 128Mi

@@ -71,6 +71,51 @@ created).
 kubectl apply -k project/k3d      # after creating the Secret and the directory on the node, see ../volumes/README.md
 ```
 
+## Resource requests and limits (exercise 3.11)
+
+Every container of the project has `requests` and `limits`:
+
+- the **request** is what the scheduler reserves for the container on a node: a pod only starts on a
+  node that has that much free. It should be about what the container normally uses;
+- the **limit** is the most it can use: above the CPU limit the container is slowed down, above the
+  memory limit it is killed (`OOMKilled`). It should leave room for peaks.
+
+The values were not guessed: they come from `kubectl top pods -n project` at rest and after sending
+traffic to the page and the form:
+
+| Container | Measured (CPU / memory) | Requests | Limits |
+| --------- | ----------------------- | -------- | ------ |
+| `todo-app` | 2-10m / 22-26Mi | 10m / 32Mi | 200m / 128Mi |
+| `todo-backend` | 1-4m / 12Mi | 10m / 24Mi | 200m / 96Mi |
+| `postgres` | 2-4m / 29Mi | 25m / 64Mi | 500m / 256Mi |
+| `todo-cronjob` (the Wikipedia todo) | a few seconds a day | 5m / 24Mi | 100m / 96Mi |
+| `todo-backup`: `dump` (`pg_dump`) | a few seconds a day | 10m / 32Mi | 200m / 256Mi |
+| `todo-backup`: `upload` (`gcloud`) | a few seconds a day | 20m / 96Mi | 500m / 384Mi |
+
+Why it matters here: the nodes are `e2-small` (about 940m of CPU and 1.3GiB of memory available to
+pods) and GKE's own pods already use a large part of them (`kubectl describe node` showed 69-95% of
+the CPU and 77-93% of the memory *requested*). The first values (50m/64Mi and 100m/128Mi for each
+container) were 2 to 5 times above the real use, so a new environment barely fitted. With the measured
+values an environment requests about 100m of CPU and 200Mi of memory.
+
+Two namespace-level objects complete it ([base](base/)):
+
+- **`LimitRange` `default-resources`**: a container that does not set its own values (a pod started
+  with `kubectl run`, for example) gets `10m/32Mi` as request and `200m/128Mi` as limit.
+- **`ResourceQuota` `environment-quota`**: the most one environment can ask for (250m CPU and 512Mi
+  of memory in requests, 2 CPU and 1.5Gi in limits, 20 pods), so that the environment of a branch
+  cannot take the whole cluster. It is about 3 times the normal use, which leaves room for the rolling
+  update of the backend and for the backup job. If a deployment fails with `exceeded quota`, this is
+  why: look at `kubectl describe resourcequota -n <namespace>`.
+
+To measure again (needs the metrics server, which GKE has):
+
+```bash
+kubectl top pods -n project
+kubectl describe resourcequota environment-quota -n project   # used / hard
+kubectl describe node <node> | grep -A8 "Allocated resources"
+```
+
 ## Deployment pipeline (exercise 3.6)
 
 [../.github/workflows/project.yaml](../.github/workflows/project.yaml) deploys the project
@@ -278,3 +323,4 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 - 3.8 (deleting a branch deletes its environment)
 - 3.9 (DBaaS vs DIY comparison)
 - 3.10 (database backup, see ../todo_backup)
+- 3.11 (resource requests and limits, LimitRange and ResourceQuota)

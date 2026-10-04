@@ -31,10 +31,11 @@ spec:
           volumeMounts:
             - name: image-cache
               mountPath: /usr/src/app/files
+          # measured with `kubectl top pods`: 2-10m CPU and 22-26Mi of memory
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: 10m
+              memory: 32Mi
             limits:
               cpu: 200m
               memory: 128Mi

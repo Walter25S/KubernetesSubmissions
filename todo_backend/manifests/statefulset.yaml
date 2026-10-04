@@ -56,10 +56,12 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+          # measured with `kubectl top pods`: 2-4m CPU and 29Mi of memory; the limit leaves room
+          # for queries and for the backup (pg_dump)
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 25m
+              memory: 64Mi
             limits:
               cpu: 500m
               memory: 256Mi
