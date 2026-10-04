@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: broadcaster-config
+  namespace: project
+data:
+  PORT: "3000"
+  # the NATS server (Service "my-nats" of the namespace "nats", see ../nats-values.yaml)
+  NATS_URL: nats://my-nats.nats.svc.cluster.local:4222
+  # the subject the backend publishes to
+  NATS_SUBJECT: todos
+  # all the replicas use the same queue group, so each message goes to only one of them
+  NATS_QUEUE: broadcaster
+  # generic | discord | slack
+  MESSAGE_FORMAT: generic
+  REQUEST_TIMEOUT_MS: "5000"

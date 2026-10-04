@@ -1,0 +1,23 @@
+# NATS for the project (exercise 4.6), installed with the chart nats/nats in the namespace "nats":
+#
+#   helm repo add nats https://nats-io.github.io/k8s/helm/charts/
+#   helm upgrade --install my-nats nats/nats --namespace nats --create-namespace --values nats-values.yaml
+#
+# Core NATS only (JetStream is off, which is the default): messages are delivered "at most once",
+# so a message can be lost but is never delivered twice. That is what the broadcaster needs: a
+# missing notification is not a problem, a duplicated one is.
+
+# a small server for a development cluster
+container:
+  merge:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+# the nats-box pod (a tool with the nats CLI) is not needed
+natsBox:
+  enabled: false

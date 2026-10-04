@@ -34,6 +34,16 @@ exercise already has the table, so the backend adds the column on startup if it 
 (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`): the existing todos are kept and are not done.
 The change is logged like the other requests: `PUT /todos/1 200 3ms updated todo 1: done=true`.
 
+## Messages to NATS (exercise 4.6)
+
+When a todo is created or updated, after it was saved, the backend publishes a message to NATS (subject
+`NATS_SUBJECT`): `{"event": "created" | "updated", "todo": {"id": 1, "todo": "...", "done": false}}`.
+The [broadcaster](../broadcaster/README.md) listens to it and sends it to a chat service.
+
+It is **optional**: if `NATS_URL` is not set the backend does not try to connect and logs
+`Messaging is off`. Publishing never makes a request fail and never waits for NATS: if NATS is down the
+message is lost, which is acceptable here, and the backend reconnects by itself when NATS is back.
+
 ## Probes (exercise 4.2)
 
 - **`readinessProbe` -> `/healthz`**: ready only when connected to the database (`SELECT 1`). Without the
@@ -92,6 +102,8 @@ message.
 | `MAX_BODY_BYTES` | Maximum size of a request body | ConfigMap |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` | Where and how to connect to Postgres | ConfigMap |
 | `DB_RETRY_DELAY_MS` | Wait between connection attempts at startup | ConfigMap |
+| `NATS_URL` | Optional. The NATS server to publish to; without it the messaging is off | ConfigMap, only in the local cluster (`project/k3d`) |
+| `NATS_SUBJECT` | The subject to publish to; required when `NATS_URL` is set | ConfigMap, only in the local cluster |
 | `DB_CONNECT_TIMEOUT_MS` | How long to wait for a connection before giving up, so that a health check never hangs | ConfigMap |
 | `DB_PASSWORD` | Database password | Secret `postgres-secret`, key `POSTGRES_PASSWORD` |
 
@@ -129,8 +141,8 @@ curl localhost:3001/todos
 ## Build and push the image
 
 ```bash
-docker build -t wallas25/todo-backend:4.5 .
-docker push wallas25/todo-backend:4.5
+docker build -t wallas25/todo-backend:4.6 .
+docker push wallas25/todo-backend:4.6
 ```
 
 ## Deploy to the cluster
@@ -153,3 +165,4 @@ kubectl get statefulset,pods,pvc -n project
 - 2.10 (request logging and the 140-character limit in the backend)
 - 4.2 (readiness and liveness probes)
 - 4.5 (the `done` field and `PUT /todos/<id>`)
+- 4.6 (publishes a message to NATS when a todo is created or updated)

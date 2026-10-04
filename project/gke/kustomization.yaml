@@ -29,6 +29,6 @@ images:
   - name: wallas25/todo-app
     newTag: "4.5"
   - name: wallas25/todo-backend
-    newTag: "4.5"
+    newTag: "4.6"
   - name: wallas25/todo-cronjob
     newTag: "2.9"

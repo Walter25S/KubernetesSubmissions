@@ -401,3 +401,4 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 - 3.12 (logs and monitoring in GKE)
 - 4.2 (readiness and liveness probes)
 - 4.5 (Todo and Done lists, the `done` field)
+- 4.6 (broadcaster and NATS, see ../broadcaster; local cluster only)

@@ -1,0 +1,11 @@
+# In the local cluster the backend publishes a message to NATS when a todo is created or updated
+# (exercise 4.6). The base does not have these two keys, so the messaging is off in the
+# environments without NATS, like GKE.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-backend-config
+  namespace: project
+data:
+  NATS_URL: nats://my-nats.nats.svc.cluster.local:4222
+  NATS_SUBJECT: todos

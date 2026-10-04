@@ -1,14 +1,13 @@
 {
-  "name": "todo-backend",
+  "name": "broadcaster",
   "version": "1.0.0",
-  "description": "Stores the todos of the project (in memory)",
+  "description": "Sends the messages about the todos from NATS to an external chat service",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "license": "MIT",
   "dependencies": {
-    "nats": "^2.29.3",
-    "pg": "^8.23.1"
+    "nats": "^2.29.3"
   }
 }

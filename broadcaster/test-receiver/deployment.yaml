@@ -1,0 +1,38 @@
+# Only to test the broadcaster: a fake chat service that keeps the messages it receives.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-receiver
+  namespace: project
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-receiver
+  template:
+    metadata:
+      labels:
+        app: webhook-receiver
+    spec:
+      containers:
+        - name: webhook-receiver
+          image: wallas25/webhook-receiver:4.6
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-receiver
+  namespace: project
+spec:
+  selector:
+    app: webhook-receiver
+  ports:
+    - port: 8080
+      targetPort: 8080

@@ -1,5 +1,6 @@
 const http = require('http');
 const { Pool } = require('pg');
+const { connect, JSONCodec } = require('nats');
 
 const required = (name) => {
   const value = process.env[name];
@@ -36,6 +37,46 @@ const pool = new Pool({
 
 // true once the table exists, that is, once the database has answered at least once
 let databaseReady = false;
+
+// --- messaging (exercise 4.6) ---
+// The backend tells the other services about the changes of the todos by publishing a message
+// to NATS; the broadcaster listens to it. It is optional: without NATS_URL no message is sent
+// (for example in the environments that do not have NATS). Publishing never makes a request
+// fail and does not wait: a message that cannot be sent is lost, which is acceptable here.
+const natsUrl = process.env.NATS_URL || '';
+const natsSubject = natsUrl ? required('NATS_SUBJECT') : '';
+const jsonCodec = JSONCodec();
+let natsConnection = null;
+
+const startMessaging = () => {
+  if (!natsUrl) {
+    console.log('Messaging is off: NATS_URL is not set');
+    return;
+  }
+  // waitOnFirstConnect: keep trying if NATS is not there yet instead of giving up
+  connect({
+    servers: natsUrl,
+    maxReconnectAttempts: -1,
+    reconnectTimeWait: 2000,
+    waitOnFirstConnect: true,
+  })
+    .then((connection) => {
+      natsConnection = connection;
+      console.log(`Connected to NATS at ${natsUrl}, subject ${natsSubject}`);
+    })
+    .catch((err) => console.error(`NATS connection failed: ${err.message}`));
+};
+
+const publishEvent = (event, todo) => {
+  if (!natsConnection || natsConnection.isClosed()) {
+    return;
+  }
+  try {
+    natsConnection.publish(natsSubject, jsonCodec.encode({ event, todo }));
+  } catch (err) {
+    console.error(`Could not publish the message: ${err.message}`);
+  }
+};
 
 // Without a handler, an error on an idle connection (for example when the
 // database restarts) would crash the process. The pool replaces the connection.
@@ -164,6 +205,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       details = `updated todo ${id}: done=${payload.done}`;
+      publishEvent('updated', result.rows[0]);
       sendJson(res, 200, result.rows[0]);
     } catch (err) {
       console.error(`Database error: ${err.message}`);
@@ -204,6 +246,7 @@ const server = http.createServer(async (req, res) => {
         [text],
       );
       details = `created todo ${result.rows[0].id}: ${JSON.stringify(text)}`;
+      publishEvent('created', result.rows[0]);
       sendJson(res, 201, result.rows[0]);
     } catch (err) {
       console.error(`Database error: ${err.message}`);
@@ -221,3 +264,4 @@ server.listen(port, () => {
   console.log(`Server started in port ${port}`);
 });
 initDatabase();
+startMessaging();
