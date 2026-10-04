@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-backend-config
+  namespace: project
+data:
+  PORT: "3000"
+  MAX_TODO_LENGTH: "140"
+  MAX_BODY_BYTES: "10240"

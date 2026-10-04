@@ -2,16 +2,36 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 
-const port = process.env.PORT || 3000;
-const imageDir = process.env.IMAGE_DIR || '/usr/src/app/files/todo';
-const imageFile = path.join(imageDir, 'image.jpg');
-const imageUrl = process.env.IMAGE_URL || 'https://picsum.photos/1200';
-const imageTtlMs = parseInt(process.env.IMAGE_TTL_MS, 10) || 10 * 60 * 1000;
-const shutdownEnabled = process.env.ENABLE_SHUTDOWN === 'true';
-const backendUrl = process.env.TODO_BACKEND_URL || 'http://todo-backend-svc:2345';
+const required = (name) => {
+  const value = process.env[name];
+  if (value === undefined || value === '') {
+    console.error(`Missing required environment variable ${name}`);
+    process.exit(1);
+  }
+  return value;
+};
 
-const MAX_TODO_LENGTH = 140;
-const MAX_BODY_BYTES = 10 * 1024;
+const requiredInt = (name) => {
+  const value = parseInt(required(name), 10);
+  if (Number.isNaN(value) || value <= 0) {
+    console.error(`Environment variable ${name} must be a positive integer`);
+    process.exit(1);
+  }
+  return value;
+};
+
+const port = requiredInt('PORT');
+const imageDir = required('IMAGE_DIR');
+const imageFile = path.join(imageDir, 'image.jpg');
+const imageUrl = required('IMAGE_URL');
+const imageTtlMs = requiredInt('IMAGE_TTL_MS');
+const backendUrl = required('TODO_BACKEND_URL');
+const requestTimeoutMs = requiredInt('REQUEST_TIMEOUT_MS');
+const shutdownEnabled = process.env.ENABLE_SHUTDOWN === 'true';
+
+const MAX_TODO_LENGTH = requiredInt('MAX_TODO_LENGTH');
+const MAX_BODY_BYTES = requiredInt('MAX_BODY_BYTES');
+const imageTtlMinutes = Math.round(imageTtlMs / 60000);
 
 fs.mkdirSync(imageDir, { recursive: true });
 
@@ -53,7 +73,7 @@ const imageAge = () => {
 // --- todos (exercise 2.2): stored by the todo-backend service ---
 
 const fetchTodos = async () => {
-  const response = await fetch(`${backendUrl}/todos`, { signal: AbortSignal.timeout(3000) });
+  const response = await fetch(`${backendUrl}/todos`, { signal: AbortSignal.timeout(requestTimeoutMs) });
   if (!response.ok) {
     throw new Error(`todo-backend answered ${response.status}`);
   }
@@ -65,7 +85,7 @@ const createTodo = async (todo) => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ todo }),
-    signal: AbortSignal.timeout(3000),
+    signal: AbortSignal.timeout(requestTimeoutMs),
   });
   if (!response.ok) {
     throw new Error(`todo-backend answered ${response.status}`);
@@ -89,7 +109,7 @@ const renderPage = (todos, message) => `<!DOCTYPE html>
   <body>
     <h1>Todo app</h1>
     <img src="/image" alt="Random picture" width="400" />
-    <p>The picture changes every 10 minutes.</p>
+    <p>The picture changes every ${imageTtlMinutes} minutes.</p>
 
     <form action="/todos" method="post">
       <input

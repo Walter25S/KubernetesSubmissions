@@ -1,8 +1,26 @@
 const http = require('http');
 
-const port = process.env.PORT || 3000;
-const MAX_TODO_LENGTH = 140;
-const MAX_BODY_BYTES = 10 * 1024;
+const required = (name) => {
+  const value = process.env[name];
+  if (value === undefined || value === '') {
+    console.error(`Missing required environment variable ${name}`);
+    process.exit(1);
+  }
+  return value;
+};
+
+const requiredInt = (name) => {
+  const value = parseInt(required(name), 10);
+  if (Number.isNaN(value) || value <= 0) {
+    console.error(`Environment variable ${name} must be a positive integer`);
+    process.exit(1);
+  }
+  return value;
+};
+
+const port = requiredInt('PORT');
+const MAX_TODO_LENGTH = requiredInt('MAX_TODO_LENGTH');
+const MAX_BODY_BYTES = requiredInt('MAX_BODY_BYTES');
 
 const todos = [];
 let nextId = 1;

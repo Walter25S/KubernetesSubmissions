@@ -1,8 +1,31 @@
 # todo_app
 
 Web server for the course project. On startup it prints
-`Server started in port NNNN`. The port is chosen with the `PORT`
-environment variable (default `3000`).
+`Server started in port NNNN`.
+
+## Configuration (exercise 2.6)
+
+There are no ports, URLs or limits in the source code: everything comes from
+environment variables, which in the cluster are defined in the ConfigMap
+`todo-app-config` ([manifests/configmap.yaml](manifests/configmap.yaml)) and
+loaded with `envFrom`. A missing variable stops the app on startup with a
+message.
+
+| Variable | Meaning | Value in the ConfigMap |
+| -------- | ------- | ---------------------- |
+| `PORT` | Port the server listens on | `3000` |
+| `IMAGE_DIR` | Directory (inside the volume) where the picture is cached | `/usr/src/app/files/todo` |
+| `IMAGE_URL` | Where to download the random picture | `https://picsum.photos/1200` |
+| `IMAGE_TTL_MS` | How long the picture stays the same | `600000` (10 minutes) |
+| `TODO_BACKEND_URL` | Base URL of `todo_backend` | `http://todo-backend-svc:2345` |
+| `REQUEST_TIMEOUT_MS` | Timeout of the requests to the backend | `3000` |
+| `MAX_TODO_LENGTH` | Maximum length of a todo | `140` |
+| `MAX_BODY_BYTES` | Maximum size of a submitted form | `10240` |
+| `ENABLE_SHUTDOWN` | Optional, `true` enables `POST /shutdown` (testing only) | `true` |
+
+To change a value, edit the ConfigMap, apply it and restart the pods
+(`kubectl rollout restart deployment/todo-app-dep -n project`); the image does
+not need to be rebuilt.
 
 ## Endpoints
 
@@ -37,8 +60,10 @@ The Deployment mounts the claim `shared-claim` defined in
 
 ## Run locally
 
+All the variables above are required:
+
 ```bash
-PORT=3000 IMAGE_DIR=/tmp/todo-images node index.js
+PORT=3000 IMAGE_DIR=/tmp/todo-images IMAGE_URL=https://picsum.photos/1200 IMAGE_TTL_MS=600000 TODO_BACKEND_URL=http://localhost:3001 REQUEST_TIMEOUT_MS=3000 MAX_TODO_LENGTH=140 MAX_BODY_BYTES=10240 node index.js
 ```
 
 ## Build and push the image
@@ -56,7 +81,7 @@ docker exec k3d-k3s-default-agent-0 sh -c "mkdir -p /tmp/kube && chmod 777 /tmp/
 kubectl apply -f ../namespaces/project.yaml
 kubectl apply -f ../volumes/
 kubectl apply -f ../todo_backend/manifests/
-kubectl apply -f manifests/
+kubectl apply -f manifests/        # the ConfigMap, Deployment, Service and Ingress
 kubectl get all -n project
 ```
 
@@ -77,3 +102,4 @@ time until the apps get their own routes.
 - 1.13 (todo input, Send button and hardcoded todo list)
 - 2.2 (todos created and listed through `todo_backend`)
 - 2.4 (moved to the `project` namespace)
+- 2.6 (configuration in a ConfigMap, nothing hard coded)
