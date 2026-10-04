@@ -5,8 +5,13 @@ so it survives restarts of the app and of the database pod.
 
 | Method and path | Description |
 | --------------- | ----------- |
-| `GET /pingpong` | Responds `pong N` and then increments the counter `N`. |
-| `GET /pings` | Responds with the number of requests received so far (used by `log_output`). |
+| `GET /` | Responds `pong N` and then increments the counter `N`. |
+| `GET /pings` | Responds with the number of requests received so far (used by `log_output` and by the health check). |
+
+The app does not know where it is published. In the cluster it is reached at
+`/pingpong`: the `HTTPRoute` of the Gateway rewrites that prefix to `/` (exercise 3.4).
+Until exercise 3.3 the app itself answered at `/pingpong`, which forced the cluster URL
+structure into the code.
 
 On startup the app creates the table `pings` if needed and waits until the
 database accepts connections, so the start order of the pods does not matter.
@@ -56,13 +61,15 @@ to start from scratch.
 ```bash
 npm install
 PORT=3000 DB_HOST=localhost DB_PORT=5432 DB_NAME=pingpong DB_USER=pingpong DB_PASSWORD=... DB_RETRY_DELAY_MS=2000 node index.js
+curl localhost:3000/        # pong 0, then pong 1, ...
+curl localhost:3000/pings   # number of pongs so far
 ```
 
 ## Build and push the image
 
 ```bash
-docker build -t wallas25/ping-pong:2.7 .
-docker push wallas25/ping-pong:2.7
+docker build -t wallas25/ping-pong:3.4 .
+docker push wallas25/ping-pong:3.4
 ```
 
 ## Deploy to the cluster
@@ -76,7 +83,9 @@ kubectl get statefulset,pods,pvc -n exercises
 
 `manifests/service.yaml` is a `ClusterIP` Service (2346 -> 3000). The Ingress is
 shared with `log_output` and lives in `../log_output/manifests/ingress.yaml`:
-`/` goes to `log_output` and `/pingpong` goes to this app. Both live in the
+`/` goes to `log_output` and `/pingpong` goes to this app (this local Ingress does not
+rewrite paths, so since exercise 3.4 `/pingpong` only works on the GKE Gateway; the
+earlier releases work with it). Both live in the
 `exercises` namespace; from another namespace it is `ping-pong-svc.exercises`.
 
 Debug the database with a temporary pod:
@@ -86,7 +95,7 @@ kubectl run -it --rm --restart=Never -n exercises --image postgres:16-alpine psq
 # psql postgres://pingpong:<password>@postgres-svc:5432/pingpong
 ```
 
-## Deploy to Google Kubernetes Engine (exercises 3.1 to 3.3)
+## Deploy to Google Kubernetes Engine (exercises 3.1 to 3.4)
 
 The files that differ from the local k3d ones are in [gke/](gke/):
 
@@ -116,6 +125,8 @@ How it is exposed changed along the exercises (each one has its own release):
   for the health check.
 - **3.3**: the Gateway API shared with `log_output`, see
   [../log_output/README.md](../log_output/README.md#deploy-to-google-kubernetes-engine-exercises-32-and-33).
+- **3.4**: the same Gateway, but the `HTTPRoute` rewrites `/pingpong` to `/` and the app
+  answers in `/` (`../log_output/gke/httproute.yaml`).
 
 The load balancer and the cluster cost money (they consume the free credits). Delete
 the cluster when it is not needed: `gcloud container clusters delete <name> --zone=<zone>`.
@@ -129,3 +140,4 @@ the cluster when it is not needed: `gcloud container clusters delete <name> --zo
 - 3.1 (deployed to GKE and exposed with a `LoadBalancer` Service)
 - 3.2 (exposed with the shared Ingress on GKE, `NodePort` Service and `BackendConfig`)
 - 3.3 (exposed with the Gateway API, `HealthCheckPolicy`)
+- 3.4 (answers in `/`; the `HTTPRoute` rewrites `/pingpong` to `/`)

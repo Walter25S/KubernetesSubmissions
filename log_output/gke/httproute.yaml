@@ -1,4 +1,6 @@
 # Routing rules of the Gateway (exercise 3.3): the same as the old Ingress.
+# Exercise 3.4: ping-pong serves its counter in the root path, so the prefix /pingpong
+# is rewritten to / before the request reaches it (/pingpong -> /).
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -12,6 +14,12 @@ spec:
         - path:
             type: PathPrefix
             value: /pingpong
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
       backendRefs:
         - name: ping-pong-svc
           port: 2346

@@ -62,7 +62,9 @@ const sendText = (res, status, text) => {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.method === 'GET' && req.url === '/pingpong') {
+    // The app does not know under which path it is published: the Gateway rewrites
+    // /pingpong to / (exercise 3.4).
+    if (req.method === 'GET' && req.url === '/') {
       // count - 1 is the number of requests before this one
       const result = await pool.query(
         'UPDATE pings SET count = count + 1 WHERE id = 1 RETURNING count - 1 AS pong',

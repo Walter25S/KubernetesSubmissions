@@ -86,7 +86,9 @@ On GKE the apps are exposed with the **Gateway API**, shared with `ping_pong`, i
 - `gke/gateway.yaml`: the `Gateway` `exercises-gateway`, class
   `gke-l7-global-external-managed` (a Google Cloud HTTP load balancer), listening on port 80.
 - `gke/httproute.yaml`: the `HTTPRoute` with the rules: `/pingpong` goes to `ping-pong-svc`
-  and `/` goes to `log-output-svc`. The more specific path wins.
+  and `/` goes to `log-output-svc`. The more specific path wins. Since exercise 3.4 the
+  `/pingpong` rule has a `URLRewrite` filter (`ReplacePrefixMatch: /`), so `ping_pong`
+  receives the request in `/` and does not need to know the cluster URL structure.
 
 The Services are the `ClusterIP` ones in `manifests/service.yaml` (no `NodePort` is needed
 with a Gateway). The health check policy of `ping_pong` is in
@@ -123,3 +125,4 @@ file is still used by the local k3d cluster (Traefik).
 - 2.5 (configuration from a ConfigMap)
 - 3.2 (deployed to GKE and exposed with an Ingress)
 - 3.3 (the Ingress replaced by the Gateway API)
+- 3.4 (the route rewrites `/pingpong` to `/` for `ping_pong`)

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: ping-pong
-          image: wallas25/ping-pong:2.7
+          image: wallas25/ping-pong:3.4
           envFrom:
             - configMapRef:
                 name: ping-pong-config

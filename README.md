@@ -56,6 +56,7 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | [3.1](https://github.com/Walter25S/KubernetesSubmissions/tree/3.1/ping_pong) | `ping_pong` |
 | [3.2](https://github.com/Walter25S/KubernetesSubmissions/tree/3.2/log_output) | `log_output` / `ping_pong` |
 | [3.3](https://github.com/Walter25S/KubernetesSubmissions/tree/3.3/log_output) | `log_output` / `ping_pong` |
+| [3.4](https://github.com/Walter25S/KubernetesSubmissions/tree/3.4/ping_pong) | `ping_pong` / `log_output` |
 
 ## Chapters 5-6
 
