@@ -2,3 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: project
+  labels:
+    # The deployment pipeline creates and deletes the environments of the branches; it only
+    # deletes namespaces that carry this label (see .github/workflows/delete-environment.yaml).
+    app.kubernetes.io/managed-by: project-pipeline

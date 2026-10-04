@@ -114,9 +114,35 @@ What the job does for a branch that has no environment yet:
 
 Pushes to the same branch are deployed one after the other (`concurrency`), never at the same time.
 
-Every environment costs money (load balancer, two disks, a database): delete the ones that are
-not needed, for example `kubectl delete namespace feature-x` (this removes everything inside,
-including the disks).
+The branch named `project` is rejected, because its environment would be the one of `main`.
+
+Every environment costs money (load balancer, two disks, a database), so they are deleted
+automatically when the branch is deleted (exercise 3.8, below).
+
+### Deleting a branch deletes its environment (exercise 3.8)
+
+[../.github/workflows/delete-environment.yaml](../.github/workflows/delete-environment.yaml) runs
+when a branch is deleted (the `delete` event) and removes the namespace of that branch with
+everything in it: pods, database, disks and the Gateway with its load balancer.
+
+```bash
+git push origin --delete feature-x        # or "Delete branch" in GitHub after merging a pull request
+```
+
+Things to know:
+
+- **Only namespaces created by the pipeline are deleted.** The pipeline puts the label
+  `app.kubernetes.io/managed-by=project-pipeline` on every namespace it creates, and the delete
+  workflow refuses to touch a namespace without it. Without this check, deleting a branch called
+  `exercises`, `default` or `kube-system` would destroy those namespaces. A namespace created by
+  an older version of the pipeline has no label: label it by hand to let the workflow delete it,
+  or delete it with `kubectl delete namespace <name>`.
+- **`main` / `project` is never deleted** by the workflow.
+- GitHub runs the workflows of the `delete` event from the **default branch** (the deleted branch
+  does not exist any more), so the file has to be in `main` to work.
+- The images in Artifact Registry are not deleted (the pipeline's service account can write but
+  not delete images). Clean them from time to time, see the end of the pipeline section.
+- The `delete` event is also sent for tags; the job only runs for branches.
 
 To try it: create a branch, change something visible in `todo_app` and push it:
 
@@ -196,3 +222,4 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 - 3.5 (Kustomize)
 - 3.6 (deployment pipeline with GitHub Actions)
 - 3.7 (one environment per branch)
+- 3.8 (deleting a branch deletes its environment)

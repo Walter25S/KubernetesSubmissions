@@ -1,0 +1,71 @@
+name: Delete environment
+
+# Deleting a branch deletes its environment (exercise 3.8): the namespace created by
+# project.yaml, with everything inside (pods, database, disks, Gateway and its load balancer).
+#
+# GitHub runs the workflows of the "delete" event from the DEFAULT branch, because the
+# deleted branch does not exist any more: this file has to be in main to take effect.
+on:
+  delete:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
+  GKE_CLUSTER: dwk-cluster
+  GKE_ZONE: us-central1-a
+  # the branch that was deleted
+  BRANCH: ${{ github.event.ref }}
+
+# wait for a deployment of the same branch that may still be running
+concurrency:
+  group: deploy-${{ github.event.ref }}
+  cancel-in-progress: false
+
+jobs:
+  delete-environment:
+    name: Delete the environment of the branch
+    # the event is also sent when a tag is deleted
+    if: github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Get the credentials of the GKE cluster
+        uses: google-github-actions/get-gke-credentials@v3
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          project_id: ${{ env.PROJECT_ID }}
+          location: ${{ env.GKE_ZONE }}
+
+      # Deleting a namespace removes everything in it, so be strict about which one:
+      # never the one of main, and only a namespace that the pipeline created (label).
+      # Without the label, deleting a branch called "exercises" or "default" would
+      # destroy those namespaces.
+      - name: Delete the namespace
+        run: |-
+          NAMESPACE="$BRANCH"
+          if [ "$BRANCH" = "main" ] || [ "$NAMESPACE" = "project" ]; then
+            echo "::warning::'$BRANCH' is the production environment: not deleted"
+            exit 0
+          fi
+          if ! kubectl get namespace "$NAMESPACE" > /dev/null 2>&1; then
+            echo "The branch '$BRANCH' has no environment: nothing to delete"
+            exit 0
+          fi
+          MANAGED_BY="$(kubectl get namespace "$NAMESPACE" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}')"
+          if [ "$MANAGED_BY" != "project-pipeline" ]; then
+            echo "::warning::The namespace '$NAMESPACE' was not created by the pipeline: not deleted"
+            exit 0
+          fi
+          kubectl delete namespace "$NAMESPACE" --timeout=10m
+          echo "Environment '$NAMESPACE' deleted" | tee -a "$GITHUB_STEP_SUMMARY"
