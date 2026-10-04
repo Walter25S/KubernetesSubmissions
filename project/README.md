@@ -87,6 +87,46 @@ to GKE every time something of the project is pushed to `main` (`todo_app/`,
 node can mount it, and the default `RollingUpdate` would start the new pod before the old one
 released the disk (a Multi-Attach error on GKE).
 
+### One environment per branch (exercise 3.7)
+
+The pipeline runs for **every branch** (when something of the project changes) and deploys it
+to its own environment, a namespace:
+
+| Branch | Namespace |
+| ------ | --------- |
+| `main` | `project` |
+| any other, for example `feature-x` | `feature-x` |
+
+The branch names are assumed to be valid namespace names (lowercase letters, digits and `-`, at
+most 63 characters). The job stops with an error message if the name is not valid, for example
+`Feature_X` or `feat/x`.
+
+What the job does for a branch that has no environment yet:
+
+1. creates the namespace (`kustomize edit set namespace <name>` also moves every resource of the
+   kustomization there, including the Gateway, the disks and the database);
+2. creates the Secret `postgres-secret` with a **random password** generated in the job, never
+   printed (`::add-mask::`) and never replaced afterwards, because the database was initialised
+   with it;
+3. deploys the images of that branch, tagged `<branch>-<commit sha>`;
+4. waits for the rollout and prints the address of the new environment, also in the summary of
+   the run: each environment has its **own Gateway, that is its own load balancer and IP**.
+
+Pushes to the same branch are deployed one after the other (`concurrency`), never at the same time.
+
+Every environment costs money (load balancer, two disks, a database): delete the ones that are
+not needed, for example `kubectl delete namespace feature-x` (this removes everything inside,
+including the disks).
+
+To try it: create a branch, change something visible in `todo_app` and push it:
+
+```bash
+git switch -c feature-x
+# edit todo_app/index.js ...
+git commit -am "Try the environment of a branch" && git push -u origin feature-x
+kubectl get all,gateway -n feature-x
+```
+
 ### How the pipeline logs in (no keys are stored)
 
 It uses **Workload Identity Federation**: the job asks GitHub for a short-lived token, Google
@@ -155,3 +195,4 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 
 - 3.5 (Kustomize)
 - 3.6 (deployment pipeline with GitHub Actions)
+- 3.7 (one environment per branch)

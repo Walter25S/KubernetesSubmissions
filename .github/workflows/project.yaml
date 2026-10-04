@@ -2,11 +2,11 @@ name: Release project
 
 # Builds the three images of the project, publishes them to Google Artifact Registry and
 # deploys them to the GKE cluster with Kustomize (exercise 3.6).
+# Every branch gets its own environment, a namespace named like the branch; the main branch
+# is deployed to the namespace "project" (exercise 3.7).
 # It only runs when something of the project changes.
 on:
   push:
-    branches:
-      - main
     paths:
       - todo_app/**
       - todo_backend/**
@@ -24,8 +24,13 @@ env:
   GKE_ZONE: us-central1-a
   REGISTRY: us-central1-docker.pkg.dev
   REPOSITORY: my-repository
-  NAMESPACE: project
   BRANCH: ${{ github.ref_name }}
+
+# A new push to a branch waits for the previous deployment of the same branch instead of
+# running at the same time (two deployments to one environment would collide).
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   build-publish-deploy:
@@ -34,6 +39,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      # main -> namespace "project"; any other branch -> a namespace with the name of the
+      # branch (the branches are assumed to be named so that they are valid namespace names).
+      - name: Choose the environment
+        run: |-
+          if [ "$BRANCH" = "main" ]; then NAMESPACE=project; else NAMESPACE="$BRANCH"; fi
+          if ! [[ "$NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$ ]]; then
+            echo "::error::The branch name '$BRANCH' is not a valid namespace name (lowercase letters, digits and '-')"
+            exit 1
+          fi
+          echo "NAMESPACE=$NAMESPACE" >> "$GITHUB_ENV"
+          echo "Environment: namespace $NAMESPACE"
 
       # No key is stored: GitHub issues a short-lived token that Google Cloud exchanges for
       # the credentials of the service account (Workload Identity Federation).
@@ -70,9 +87,22 @@ jobs:
       - name: Set up Kustomize
         uses: imranismail/setup-kustomize@v3
 
+      # A new environment has no namespace and no database password yet. The password is
+      # generated here and kept only in the cluster; an existing one is never replaced (the
+      # database was initialised with it).
+      - name: Prepare the namespace and the database password
+        run: |-
+          kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          if ! kubectl get secret postgres-secret -n "$NAMESPACE" > /dev/null 2>&1; then
+            PASSWORD="$(openssl rand -hex 16)"
+            echo "::add-mask::$PASSWORD"
+            kubectl create secret generic postgres-secret -n "$NAMESPACE" --from-literal=POSTGRES_PASSWORD="$PASSWORD"
+          fi
+
       - name: Deploy
         run: |-
           cd project/gke
+          kustomize edit set namespace "$NAMESPACE"
           for IMAGE in todo-app todo-backend todo-cronjob; do
             kustomize edit set image "wallas25/$IMAGE=$REGISTRY/$PROJECT_ID/$REPOSITORY/$IMAGE:$TAG"
           done
@@ -85,3 +115,17 @@ jobs:
           kubectl rollout status deployment/todo-backend-dep -n "$NAMESPACE" --timeout=300s
           kubectl rollout status deployment/todo-app-dep -n "$NAMESPACE" --timeout=300s
           kubectl get pods,svc,gateway -n "$NAMESPACE" -o wide
+
+      # The Gateway needs a few minutes to get its address (a new load balancer).
+      - name: Show the address of the environment
+        run: |-
+          for i in $(seq 1 40); do
+            ADDRESS="$(kubectl get gateway project-gateway -n "$NAMESPACE" -o jsonpath='{.status.addresses[0].value}')"
+            [ -n "$ADDRESS" ] && break
+            sleep 15
+          done
+          if [ -n "$ADDRESS" ]; then
+            echo "Environment '$NAMESPACE': http://$ADDRESS" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::The Gateway of '$NAMESPACE' has no address yet, check it with kubectl get gateway -n $NAMESPACE"
+          fi
