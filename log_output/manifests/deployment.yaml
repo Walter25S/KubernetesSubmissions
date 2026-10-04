@@ -12,6 +12,17 @@ spec:
       labels:
         app: log-output
     spec:
+      volumes:
+        - name: shared-logs
+          emptyDir: {}
       containers:
-        - name: log-output
-          image: wallas25/log-output:1.7
+        - name: writer
+          image: wallas25/log-output-writer:1.10
+          volumeMounts:
+            - name: shared-logs
+              mountPath: /usr/src/app/files
+        - name: reader
+          image: wallas25/log-output-reader:1.10
+          volumeMounts:
+            - name: shared-logs
+              mountPath: /usr/src/app/files
