@@ -37,8 +37,17 @@ not need to be rebuilt.
 | `GET /image` | The cached random picture (JPEG). |
 | `GET /healthz` | Liveness probe (exercise 4.2): `200` while the app is healthy, `500` after the "Break the app" button was pressed. |
 | `GET /readyz` | Readiness probe (exercise 4.2): `200` when the app is healthy **and the backend is connected to the database**; `503` otherwise. |
+| `POST /todos/<id>/done`, `POST /todos/<id>/undo` | The buttons of the list (exercise 4.5): they mark the todo as done or as not done, doing a `PUT /todos/<id>` in the backend, and redirect to `/`. |
 | `POST /break` | Only with `ENABLE_BREAK_BUTTON=true`: the "Break the app" button. From then on `/healthz` answers `500` and every other page answers `503`. |
 | `POST /shutdown` | Stops the process (only when `ENABLE_SHUTDOWN=true`); used to test that the picture survives a container crash. |
+
+## Todo and Done (exercise 4.5)
+
+The page shows two lists, **Todo** and **Done**. Every todo has a button, *Mark as done* in the first list and
+*Mark as not done* in the second, that moves it to the other list. The state is kept in the database by the
+backend (`done` field). An HTML form can only send `GET` or `POST`, so the buttons post to this app
+(`POST /todos/<id>/done` or `/undo`) and the app does the `PUT /todos/<id>` to
+[todo_backend](../todo_backend/README.md#the-done-field-exercise-45).
 
 ## Probes and the "Break the app" button (exercise 4.2)
 
@@ -145,3 +154,4 @@ this folder has its own `kustomization.yaml`.
 - 2.6 (configuration in a ConfigMap, nothing hard coded)
 - 3.5 (deployed with Kustomize to GKE, see ../project)
 - 4.2 (readiness and liveness probes, "Break the app" button)
+- 4.5 (Todo and Done lists)

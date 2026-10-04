@@ -24,7 +24,7 @@ spec:
             claimName: shared-claim
       containers:
         - name: todo-app
-          image: wallas25/todo-app:4.2
+          image: wallas25/todo-app:4.5
           envFrom:
             - configMapRef:
                 name: todo-app-config

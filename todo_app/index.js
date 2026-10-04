@@ -98,6 +98,19 @@ const createTodo = async (todo) => {
   }
 };
 
+// Marks a todo as done (or not done) with PUT /todos/<id> in the backend (exercise 4.5)
+const setDone = async (id, done) => {
+  const response = await fetch(`${backendUrl}/todos/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ done }),
+    signal: AbortSignal.timeout(requestTimeoutMs),
+  });
+  if (!response.ok) {
+    throw new Error(`todo-backend answered ${response.status}`);
+  }
+};
+
 const escapeHtml = (text) =>
   String(text)
     .replace(/&/g, '&amp;')
@@ -105,6 +118,14 @@ const escapeHtml = (text) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+
+// One todo of the list, with the button that moves it to the other list. A form can only send
+// GET or POST, so the buttons post to this app, which does the PUT to the backend.
+const renderTodo = (item, done) => `      <li>${escapeHtml(item.todo)}
+        <form action="/todos/${Number(item.id)}/${done ? 'undo' : 'done'}" method="post" style="display: inline">
+          <button type="submit">${done ? 'Mark as not done' : 'Mark as done'}</button>
+        </form>
+      </li>`;
 
 const renderPage = (todos, message) => `<!DOCTYPE html>
 <html lang="en">
@@ -139,9 +160,14 @@ ${
     : ''
 }
 ${message ? `    <p><strong>${escapeHtml(message)}</strong></p>\n` : ''}
-    <h2>Todos</h2>
+    <h2>Todo</h2>
     <ul>
-${todos.map((item) => `      <li>${escapeHtml(item.todo)}</li>`).join('\n')}
+${todos.filter((item) => !item.done).map((item) => renderTodo(item, false)).join('\n')}
+    </ul>
+
+    <h2>Done</h2>
+    <ul>
+${todos.filter((item) => item.done).map((item) => renderTodo(item, true)).join('\n')}
     </ul>
   </body>
 </html>
@@ -229,6 +255,21 @@ const server = http.createServer(async (req, res) => {
       console.error(`Could not get the todos: ${err.message}`);
       sendHtml(res, 200, renderPage([], 'The todos are not available right now.'));
     }
+    return;
+  }
+
+  // The buttons of the list: POST /todos/<id>/done and POST /todos/<id>/undo
+  const doneMatch = /^\/todos\/(\d+)\/(done|undo)$/.exec(req.url);
+  if (req.method === 'POST' && doneMatch) {
+    try {
+      await setDone(doneMatch[1], doneMatch[2] === 'done');
+    } catch (err) {
+      console.error(`Could not update the todo: ${err.message}`);
+      sendHtml(res, 502, renderPage([], 'The todo could not be updated, try again later.'));
+      return;
+    }
+    res.writeHead(303, { Location: '/' });
+    res.end();
     return;
   }
 

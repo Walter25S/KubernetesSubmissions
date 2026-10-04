@@ -6,9 +6,10 @@ pod.
 
 | Method and path | Description |
 | --------------- | ----------- |
-| `GET /todos` | Returns the list of todos as JSON: `[{"id": 1, "todo": "Buy milk"}]`. |
+| `GET /todos` | Returns the list of todos as JSON: `[{"id": 1, "todo": "Buy milk", "done": false}]`. |
 | `GET /healthz` | Readiness probe (exercise 4.2): `200` when the backend is connected to the database, `503` when it is not. |
 | `GET /livez` | Liveness probe (exercise 4.2): `200` as long as the process answers. It does not look at the database. |
+| `PUT /todos/<id>` | Marks a todo as done or not done with the JSON body `{"done": true}` or `{"done": false}` (exercise 4.5) and returns the todo. `404` if the todo does not exist, `400` if `done` is not a boolean or the body is not valid JSON, `405` for any other method on that path. |
 | `POST /todos` | Creates a todo from the JSON body `{"todo": "Buy milk"}` and returns it with status `201`. A todo must have 1-`MAX_TODO_LENGTH` characters, otherwise the response is `400`. |
 
 If the database is not reachable the endpoints answer `503`. On startup the app
@@ -18,6 +19,20 @@ connections, so the start order of the pods does not matter.
 It is only reachable inside the cluster, through the Service `todo-backend-svc`
 (`http://todo-backend-svc:2345` from the `project` namespace, or
 `todo-backend-svc.project` from another one); `todo_app` talks to it.
+
+## The "done" field (exercise 4.5)
+
+Every todo has a `done` field (`false` when it is created). `PUT /todos/<id>` changes it:
+
+```bash
+curl -X PUT -H 'Content-Type: application/json' -d '{"done": true}' http://todo-backend-svc:2345/todos/1
+# {"id":1,"todo":"Save todos in Postgres","done":true}
+```
+
+The table gets a column `done BOOLEAN NOT NULL DEFAULT false`. A database that was created before this
+exercise already has the table, so the backend adds the column on startup if it is missing
+(`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`): the existing todos are kept and are not done.
+The change is logged like the other requests: `PUT /todos/1 200 3ms updated todo 1: done=true`.
 
 ## Probes (exercise 4.2)
 
@@ -114,8 +129,8 @@ curl localhost:3001/todos
 ## Build and push the image
 
 ```bash
-docker build -t wallas25/todo-backend:4.2 .
-docker push wallas25/todo-backend:4.2
+docker build -t wallas25/todo-backend:4.5 .
+docker push wallas25/todo-backend:4.5
 ```
 
 ## Deploy to the cluster
@@ -137,3 +152,4 @@ kubectl get statefulset,pods,pvc -n project
 - 2.8 (todos stored in Postgres, run as a StatefulSet)
 - 2.10 (request logging and the 140-character limit in the backend)
 - 4.2 (readiness and liveness probes)
+- 4.5 (the `done` field and `PUT /todos/<id>`)

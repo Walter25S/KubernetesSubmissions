@@ -400,3 +400,4 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 - 3.11 (resource requests and limits, LimitRange and ResourceQuota)
 - 3.12 (logs and monitoring in GKE)
 - 4.2 (readiness and liveness probes)
+- 4.5 (Todo and Done lists, the `done` field)

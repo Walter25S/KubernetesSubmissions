@@ -52,6 +52,11 @@ const initDatabase = async () => {
       await pool.query(
         'CREATE TABLE IF NOT EXISTS todos (id SERIAL PRIMARY KEY, todo TEXT NOT NULL)',
       );
+      // The "done" field (exercise 4.5). A database created before it has the table without
+      // the column, so it is added if it is missing; the existing todos are not done.
+      await pool.query(
+        'ALTER TABLE todos ADD COLUMN IF NOT EXISTS done BOOLEAN NOT NULL DEFAULT false',
+      );
       databaseReady = true;
       console.log('Database ready');
       return;
@@ -120,14 +125,56 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.url !== '/todos') {
+  const idMatch = /^\/todos\/(\d+)$/.exec(req.url);
+  if (req.url !== '/todos' && !idMatch) {
     sendJson(res, 404, { error: 'Not found' });
+    return;
+  }
+
+  // PUT /todos/<id> with {"done": true} or {"done": false} (exercise 4.5)
+  if (idMatch) {
+    const id = Number(idMatch[1]);
+    if (req.method !== 'PUT') {
+      sendJson(res, 405, { error: 'Method not allowed' });
+      return;
+    }
+    if (!Number.isSafeInteger(id) || id > 2147483647) {
+      sendJson(res, 404, { error: 'Todo not found' });
+      return;
+    }
+    let payload;
+    try {
+      payload = JSON.parse(await readBody(req));
+    } catch (err) {
+      sendJson(res, 400, { error: 'Body must be valid JSON' });
+      return;
+    }
+    if (payload === null || typeof payload.done !== 'boolean') {
+      sendJson(res, 400, { error: 'done must be true or false' });
+      return;
+    }
+    try {
+      const result = await pool.query(
+        'UPDATE todos SET done = $1 WHERE id = $2 RETURNING id, todo, done',
+        [payload.done, id],
+      );
+      if (result.rowCount === 0) {
+        details = `todo ${id} not found`;
+        sendJson(res, 404, { error: 'Todo not found' });
+        return;
+      }
+      details = `updated todo ${id}: done=${payload.done}`;
+      sendJson(res, 200, result.rows[0]);
+    } catch (err) {
+      console.error(`Database error: ${err.message}`);
+      sendJson(res, 503, { error: 'Database not available' });
+    }
     return;
   }
 
   if (req.method === 'GET') {
     try {
-      const result = await pool.query('SELECT id, todo FROM todos ORDER BY id');
+      const result = await pool.query('SELECT id, todo, done FROM todos ORDER BY id');
       sendJson(res, 200, result.rows);
     } catch (err) {
       console.error(`Database error: ${err.message}`);
@@ -153,7 +200,7 @@ const server = http.createServer(async (req, res) => {
     }
     try {
       const result = await pool.query(
-        'INSERT INTO todos (todo) VALUES ($1) RETURNING id, todo',
+        'INSERT INTO todos (todo) VALUES ($1) RETURNING id, todo, done',
         [text],
       );
       details = `created todo ${result.rows[0].id}: ${JSON.stringify(text)}`;
