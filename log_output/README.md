@@ -21,6 +21,22 @@ The first two lines come from a ConfigMap (exercise 2.5), see below.
 
 If `ping_pong` cannot be reached, the second line says `Ping / Pongs: unavailable`.
 
+## Readiness probe (exercise 4.1)
+
+The `reader` container has a `readinessProbe` on `GET /healthz`: it is **ready only when it can receive
+data from `ping_pong`** (the endpoint answers `200` if `GET http://ping-pong-svc:2346/pings` works, `503`
+if not). The `writer` has no probe, so while ping-pong is not available the pod shows **`1/2 Running`**
+(one container ready out of two); when ping-pong is ready it becomes `2/2`. Since ping-pong is only
+ready when it has the database, taking the database away makes both pods lose their readiness:
+
+```
+NAME                             READY   STATUS
+log-output-dep-57bcb75f97-xvbtl  1/2     Running
+ping-pong-dep-679bc44d5d-s9t77   0/1     Running
+```
+
+and adding the database brings them back to `2/2` and `1/1` without any other action.
+
 ## Run locally
 
 ```bash
@@ -34,9 +50,9 @@ curl localhost:3000/
 
 ```bash
 docker build -t wallas25/log-output-writer:1.10 writer
-docker build -t wallas25/log-output-reader:2.5 reader
+docker build -t wallas25/log-output-reader:4.1 reader
 docker push wallas25/log-output-writer:1.10
-docker push wallas25/log-output-reader:2.5
+docker push wallas25/log-output-reader:4.1
 ```
 
 ## Deploy to the cluster
@@ -126,3 +142,4 @@ file is still used by the local k3d cluster (Traefik).
 - 3.2 (deployed to GKE and exposed with an Ingress)
 - 3.3 (the Ingress replaced by the Gateway API)
 - 3.4 (the route rewrites `/pingpong` to `/` for `ping_pong`)
+- 4.1 (readiness probe of the reader: ready when ping-pong answers)

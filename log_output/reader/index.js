@@ -39,6 +39,20 @@ const sendText = (res, status, text) => {
 };
 
 const server = http.createServer(async (req, res) => {
+  // Readiness probe (exercise 4.1): ready when the data of ping-pong can be received.
+  if (req.method === 'GET' && req.url === '/healthz') {
+    try {
+      const response = await fetch(pingPongUrl, { signal: AbortSignal.timeout(3000) });
+      if (!response.ok) {
+        throw new Error(`status ${response.status}`);
+      }
+      sendText(res, 200, 'ok\n');
+    } catch (err) {
+      sendText(res, 503, `ping-pong not available: ${err.message}\n`);
+    }
+    return;
+  }
+
   if (req.method === 'GET' && req.url === '/') {
     let line;
     try {

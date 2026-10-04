@@ -66,6 +66,12 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | [3.11](https://github.com/Walter25S/KubernetesSubmissions/tree/3.11/project) | `project` |
 | [3.12](https://github.com/Walter25S/KubernetesSubmissions/tree/3.12/project) | `project` (README, `project/docs`) |
 
-## Chapters 5-6
+## Chapter 5
+
+| Exercise | App directory |
+| -------- | ------------- |
+| [4.1](https://github.com/Walter25S/KubernetesSubmissions/tree/4.1/ping_pong) | `ping_pong` / `log_output` |
+
+## Chapter 6
 
 Added as the course progresses.

@@ -7,6 +7,7 @@ so it survives restarts of the app and of the database pod.
 | --------------- | ----------- |
 | `GET /` | Responds `pong N` and then increments the counter `N`. |
 | `GET /pings` | Responds with the number of requests received so far (used by `log_output` and by the health check). |
+| `GET /healthz` | Readiness check (exercise 4.1): `200` when the application is connected to the database, `503` when it is not. It does not change the counter. |
 
 The app does not know where it is published. In the cluster it is reached at
 `/pingpong`: the `HTTPRoute` of the Gateway rewrites that prefix to `/` (exercise 3.4).
@@ -35,6 +36,7 @@ Nothing is hard coded. Non-secret values are in the ConfigMap `ping-pong-config`
 | `PORT` | Port the server listens on | ConfigMap |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` | Where and how to connect to Postgres | ConfigMap |
 | `DB_RETRY_DELAY_MS` | Wait between connection attempts at startup | ConfigMap |
+| `DB_CONNECT_TIMEOUT_MS` | How long to wait for a connection before giving up, so that a health check never hangs | ConfigMap |
 | `DB_PASSWORD` | Database password | Secret `postgres-secret`, key `POSTGRES_PASSWORD` |
 
 ### The Secret
@@ -56,11 +58,28 @@ with a different password after the database was initialised, the database keeps
 the old one: delete the volume (`kubectl delete pvc postgres-data-postgres-stset-0 -n exercises`)
 to start from scratch.
 
+## Readiness probe (exercise 4.1)
+
+The Deployment has a `readinessProbe` on `GET /healthz`: the pod is **ready only when it has a
+connection to the database**. The server starts at once and does not wait for the database; while the
+database is missing, `/healthz` answers `503` and the pod stays `0/1 Running`: Kubernetes does not send
+it traffic, but it does not restart it either (a restart would not bring the database back). When the
+database appears the pod becomes `1/1` by itself.
+
+To try it, take the database away (or apply everything except the StatefulSet) and bring it back:
+
+```bash
+kubectl scale statefulset/postgres-stset -n exercises --replicas=0
+kubectl get po -n exercises          # ping-pong 0/1, log-output 1/2
+kubectl scale statefulset/postgres-stset -n exercises --replicas=1
+kubectl get po -n exercises          # ping-pong 1/1, log-output 2/2
+```
+
 ## Run locally
 
 ```bash
 npm install
-PORT=3000 DB_HOST=localhost DB_PORT=5432 DB_NAME=pingpong DB_USER=pingpong DB_PASSWORD=... DB_RETRY_DELAY_MS=2000 node index.js
+PORT=3000 DB_HOST=localhost DB_PORT=5432 DB_NAME=pingpong DB_USER=pingpong DB_PASSWORD=... DB_RETRY_DELAY_MS=2000 DB_CONNECT_TIMEOUT_MS=3000 node index.js
 curl localhost:3000/        # pong 0, then pong 1, ...
 curl localhost:3000/pings   # number of pongs so far
 ```
@@ -68,8 +87,8 @@ curl localhost:3000/pings   # number of pongs so far
 ## Build and push the image
 
 ```bash
-docker build -t wallas25/ping-pong:3.4 .
-docker push wallas25/ping-pong:3.4
+docker build -t wallas25/ping-pong:4.1 .
+docker push wallas25/ping-pong:4.1
 ```
 
 ## Deploy to the cluster
@@ -141,3 +160,4 @@ the cluster when it is not needed: `gcloud container clusters delete <name> --zo
 - 3.2 (exposed with the shared Ingress on GKE, `NodePort` Service and `BackendConfig`)
 - 3.3 (exposed with the Gateway API, `HealthCheckPolicy`)
 - 3.4 (answers in `/`; the `HTTPRoute` rewrites `/pingpong` to `/`)
+- 4.1 (readiness probe: ready only when connected to the database)

@@ -28,7 +28,12 @@ const pool = new Pool({
   database: required('DB_NAME'),
   user: required('DB_USER'),
   password: required('DB_PASSWORD'),
+  // do not wait forever for a connection: the readiness probe has to get an answer
+  connectionTimeoutMillis: requiredInt('DB_CONNECT_TIMEOUT_MS'),
 });
+
+// true once the table exists, that is, once the database has answered at least once
+let databaseReady = false;
 
 // Without a handler, an error on an idle connection (for example when the
 // database restarts) would crash the process. The pool replaces the connection.
@@ -46,6 +51,7 @@ const initDatabase = async () => {
         'CREATE TABLE IF NOT EXISTS pings (id INTEGER PRIMARY KEY, count BIGINT NOT NULL)',
       );
       await pool.query('INSERT INTO pings (id, count) VALUES (1, 0) ON CONFLICT (id) DO NOTHING');
+      databaseReady = true;
       console.log('Database ready');
       return;
     } catch (err) {
@@ -62,6 +68,18 @@ const sendText = (res, status, text) => {
 
 const server = http.createServer(async (req, res) => {
   try {
+    // Readiness probe (exercise 4.1): ready only when the database answers. It does not touch
+    // the counter. If it fails the pod is taken out of the Service, but not restarted: a restart
+    // would not bring the database back.
+    if (req.method === 'GET' && req.url === '/healthz') {
+      if (!databaseReady) {
+        sendText(res, 503, 'Database not ready\n');
+        return;
+      }
+      await pool.query('SELECT 1');
+      sendText(res, 200, 'ok\n');
+      return;
+    }
     // The app does not know under which path it is published: the Gateway rewrites
     // /pingpong to / (exercise 3.4).
     if (req.method === 'GET' && req.url === '/') {
@@ -85,8 +103,9 @@ const server = http.createServer(async (req, res) => {
   sendText(res, 404, 'Not found\n');
 });
 
-initDatabase().then(() => {
-  server.listen(port, () => {
-    console.log(`Server started in port ${port}`);
-  });
+// The server starts at once, without waiting for the database: while the database is not
+// there /healthz answers 503 (not ready) and the other endpoints answer 503 too.
+server.listen(port, () => {
+  console.log(`Server started in port ${port}`);
 });
+initDatabase();

@@ -11,3 +11,4 @@ data:
   DB_NAME: pingpong
   DB_USER: pingpong
   DB_RETRY_DELAY_MS: "2000"
+  DB_CONNECT_TIMEOUT_MS: "3000"
