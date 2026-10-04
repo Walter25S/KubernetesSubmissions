@@ -32,6 +32,25 @@ kubectl get pods
 kubectl logs -f deployment/log-output-dep
 ```
 
+## Declarative workflow
+
+The deployment lives in `manifests/deployment.yaml`; no imperative
+`kubectl create`/`scale`/`set image` commands are used. To change the app,
+edit the manifest (for example bump the image tag) and re-apply it:
+
+```bash
+kubectl apply -f manifests/deployment.yaml
+```
+
+To restart from scratch and verify:
+
+```bash
+kubectl delete -f manifests/deployment.yaml
+kubectl apply -f manifests/deployment.yaml
+kubectl logs -f deployment/log-output-dep
+```
+
 ## Exercises
 
 - 1.1
+- 1.3
