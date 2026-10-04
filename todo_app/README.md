@@ -26,18 +26,19 @@ kubectl logs -f deployment/todo-app-dep
 
 `GET /` returns a simple HTML page.
 
-## Access from outside the cluster (exercise 1.6)
+## Access from outside the cluster
 
-`manifests/service.yaml` defines a `NodePort` Service: port `2345` inside the
-cluster, `targetPort` 3000 (the container) and `nodePort` 30080 on the nodes.
-The cluster must be created with the port published:
+Exercise 1.6 used a `NodePort` Service. Since exercise 1.8 the app is exposed
+with an Ingress instead: `manifests/service.yaml` is a `ClusterIP` Service
+(2345 -> 3000) and `manifests/ingress.yaml` routes `/` to it. The cluster must
+be created with the load balancer port published:
 
 ```bash
 k3d cluster create --port 8082:30080@agent:0 -p 8081:80@loadbalancer --agents 2
 kubectl apply -f manifests/
 ```
 
-Then open http://localhost:8082.
+Then open http://localhost:8081.
 
 ## Exercises
 
@@ -45,3 +46,4 @@ Then open http://localhost:8082.
 - 1.4
 - 1.5
 - 1.6
+- 1.8
