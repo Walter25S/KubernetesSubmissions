@@ -1,0 +1,19 @@
+# The load balancer of a Gateway health-checks every backend with GET / unless told
+# otherwise. ping-pong answers 404 on / (it serves /pingpong and /pings), so without
+# this policy it would be UNHEALTHY and get no traffic. /pings answers 200 and, unlike
+# /pingpong, does not change the counter.
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: ping-pong-healthcheck
+  namespace: exercises
+spec:
+  default:
+    config:
+      type: HTTP
+      httpHealthCheck:
+        requestPath: /pings
+  targetRef:
+    group: ""
+    kind: Service
+    name: ping-pong-svc

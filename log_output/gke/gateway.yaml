@@ -1,0 +1,16 @@
+# Entry point of the traffic on GKE (exercise 3.3): a Google Cloud global external
+# HTTP(S) load balancer that listens on port 80. Replaces the Ingress.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: exercises-gateway
+  namespace: exercises
+spec:
+  gatewayClassName: gke-l7-global-external-managed
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        kinds:
+          - kind: HTTPRoute

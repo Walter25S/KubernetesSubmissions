@@ -78,23 +78,40 @@ Changing the text in the ConfigMap and applying it again updates the file in the
 running pod after a short delay (the environment variable only changes when the
 pod is recreated).
 
-## Deploy to Google Kubernetes Engine (exercise 3.2)
+## Deploy to Google Kubernetes Engine (exercises 3.2 and 3.3)
 
-`log_output` and `ping_pong` are exposed together with one Ingress in the `exercises`
-namespace (`manifests/ingress.yaml`: `/` to `log_output`, `/pingpong` to `ping_pong`).
-On GKE the Ingress needs `NodePort` Services, so the ones in [gke/](gke/) are used
-instead of `manifests/service.yaml`. The images must be on Docker Hub.
+On GKE the apps are exposed with the **Gateway API**, shared with `ping_pong`, in the
+`exercises` namespace. The files are in [gke/](gke/):
+
+- `gke/gateway.yaml`: the `Gateway` `exercises-gateway`, class
+  `gke-l7-global-external-managed` (a Google Cloud HTTP load balancer), listening on port 80.
+- `gke/httproute.yaml`: the `HTTPRoute` with the rules: `/pingpong` goes to `ping-pong-svc`
+  and `/` goes to `log-output-svc`. The more specific path wins.
+
+The Services are the `ClusterIP` ones in `manifests/service.yaml` (no `NodePort` is needed
+with a Gateway). The health check policy of `ping_pong` is in
+[../ping_pong/gke/healthcheckpolicy.yaml](../ping_pong/gke/healthcheckpolicy.yaml).
+The images must be on Docker Hub.
+
+Before using it the Gateway API has to be enabled once in the cluster
+(`gcloud container clusters update <cluster> --zone=<zone> --gateway-api=standard`,
+takes several minutes).
 
 ```bash
 # ping_pong with its database first, see ../ping_pong/README.md (the Secret, gke/ ...)
-kubectl apply -f manifests/configmap.yaml -f manifests/deployment.yaml -f gke/ -f manifests/ingress.yaml
-kubectl get ingress -n exercises        # wait for ADDRESS; the backends need a few minutes to be HEALTHY
+kubectl apply -f manifests/configmap.yaml -f manifests/deployment.yaml -f manifests/service.yaml
+kubectl apply -f ../ping_pong/gke/healthcheckpolicy.yaml -f gke/
+kubectl get gateway -n exercises        # wait for ADDRESS and PROGRAMMED=True
 ```
 
-Then open `http://<ADDRESS>/` and `http://<ADDRESS>/pingpong`. While the load balancer
-is being created the requests can fail (404/502, or the connection is reset).
-The health of the backends can be seen with
-`kubectl get ingress log-output-ingress -n exercises -o jsonpath='{.metadata.annotations.ingress\.kubernetes\.io/backends}'`.
+Then open `http://<ADDRESS>/` and `http://<ADDRESS>/pingpong`. The first minutes the load
+balancer can answer 404/502 or reset the connection while it is being created and the
+backends are checked: retry. `kubectl describe gateway exercises-gateway -n exercises` and
+`kubectl describe httproute exercises-route -n exercises` show what is wrong if it does not work.
+
+Exercise 3.2 used an Ingress (`manifests/ingress.yaml`, with `NodePort` Services and a
+`BackendConfig` for the health check); the Gateway replaces it in exercise 3.3. The Ingress
+file is still used by the local k3d cluster (Traefik).
 
 ## Exercises
 
@@ -105,3 +122,4 @@ The health of the backends can be seen with
 - 2.3 (moved to the `exercises` namespace)
 - 2.5 (configuration from a ConfigMap)
 - 3.2 (deployed to GKE and exposed with an Ingress)
+- 3.3 (the Ingress replaced by the Gateway API)
