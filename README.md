@@ -24,7 +24,7 @@ Course: https://courses.mooc.fi/org/uh-cs/courses/devops-with-kubernetes-2026
 | [1.4](https://github.com/Walter25S/KubernetesSubmissions/tree/1.4/todo_app) | `todo_app` |
 | [1.5](https://github.com/Walter25S/KubernetesSubmissions/tree/1.5/todo_app) | `todo_app` |
 | [1.6](https://github.com/Walter25S/KubernetesSubmissions/tree/1.6/todo_app) | `todo_app` |
-| 1.7 | `log_output` |
+| [1.7](https://github.com/Walter25S/KubernetesSubmissions/tree/1.7/log_output) | `log_output` |
 | 1.8 | `todo_app` |
 | 1.9 | `ping_pong` |
 | 1.10 | `log_output` |
