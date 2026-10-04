@@ -56,6 +56,12 @@ const initDatabase = async () => {
   }
 };
 
+// One line per request, written when the response has been sent.
+const logRequest = (req, res, startedAt, details) => {
+  const ms = Date.now() - startedAt;
+  console.log(`${req.method} ${req.url} ${res.statusCode} ${ms}ms${details ? ` ${details}` : ''}`);
+};
+
 const sendJson = (res, status, body) => {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(body));
@@ -76,6 +82,10 @@ const readBody = (req) =>
   });
 
 const server = http.createServer(async (req, res) => {
+  const startedAt = Date.now();
+  let details = '';
+  res.on('finish', () => logRequest(req, res, startedAt, details));
+
   if (req.url !== '/todos') {
     sendJson(res, 404, { error: 'Not found' });
     return;
@@ -102,6 +112,8 @@ const server = http.createServer(async (req, res) => {
     }
     const text = typeof payload.todo === 'string' ? payload.todo.trim() : '';
     if (text.length === 0 || text.length > MAX_TODO_LENGTH) {
+      // JSON.stringify keeps the text on a single line (no log injection).
+      details = `rejected todo (${text.length} characters, limit ${MAX_TODO_LENGTH}): ${JSON.stringify(text)}`;
       sendJson(res, 400, { error: `todo must be 1-${MAX_TODO_LENGTH} characters` });
       return;
     }
@@ -110,7 +122,7 @@ const server = http.createServer(async (req, res) => {
         'INSERT INTO todos (todo) VALUES ($1) RETURNING id, todo',
         [text],
       );
-      console.log(`Created todo ${result.rows[0].id}`);
+      details = `created todo ${result.rows[0].id}: ${JSON.stringify(text)}`;
       sendJson(res, 201, result.rows[0]);
     } catch (err) {
       console.error(`Database error: ${err.message}`);

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: todo-backend
-          image: wallas25/todo-backend:2.8
+          image: wallas25/todo-backend:2.10
           envFrom:
             - configMapRef:
                 name: todo-backend-config

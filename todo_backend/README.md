@@ -17,6 +17,31 @@ It is only reachable inside the cluster, through the Service `todo-backend-svc`
 (`http://todo-backend-svc:2345` from the `project` namespace, or
 `todo-backend-svc.project` from another one); `todo_app` talks to it.
 
+## Request logging (exercise 2.10)
+
+Every request is written to stdout when its response is sent:
+`<method> <url> <status> <duration>`, plus the todo for `POST /todos`. The todo is
+printed as a JSON string, so it always stays on one line.
+
+```
+GET /todos 200 2ms
+POST /todos 201 7ms created todo 5: "Buy milk"
+POST /todos 400 2ms rejected todo (141 characters, limit 140): "yyyy..."
+POST /todos 400 1ms rejected todo (0 characters, limit 140): ""
+```
+
+The 140-character limit (`MAX_TODO_LENGTH`) is enforced by the backend itself, not
+only by the form: a todo that is empty or longer than the limit is answered with
+`400` and logged as `rejected todo`. To try it without the form:
+
+```bash
+curl -X POST -H 'Content-Type: application/json' -d "{\"todo\":\"$(printf 'y%.0s' $(seq 141))\"}" http://todo-backend-svc:2345/todos
+kubectl logs -n project deployment/todo-backend-dep | grep rejected
+```
+
+The logs are collected by the monitoring stack and can be searched in Grafana
+with the Loki query `{namespace="project"} |= "rejected todo"`.
+
 ## Database
 
 `manifests/statefulset.yaml` runs Postgres 16 as a **StatefulSet with one replica**
@@ -75,8 +100,8 @@ curl localhost:3001/todos
 ## Build and push the image
 
 ```bash
-docker build -t wallas25/todo-backend:2.8 .
-docker push wallas25/todo-backend:2.8
+docker build -t wallas25/todo-backend:2.10 .
+docker push wallas25/todo-backend:2.10
 ```
 
 ## Deploy to the cluster
@@ -96,3 +121,4 @@ kubectl get statefulset,pods,pvc -n project
 - 2.4 (moved to the `project` namespace)
 - 2.6 (configuration in a ConfigMap, nothing hard coded)
 - 2.8 (todos stored in Postgres, run as a StatefulSet)
+- 2.10 (request logging and the 140-character limit in the backend)

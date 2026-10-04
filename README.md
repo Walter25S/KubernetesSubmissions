@@ -47,6 +47,7 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | [2.7](https://github.com/Walter25S/KubernetesSubmissions/tree/2.7/ping_pong) | `ping_pong` |
 | [2.8](https://github.com/Walter25S/KubernetesSubmissions/tree/2.8/todo_backend) | `todo_backend` |
 | [2.9](https://github.com/Walter25S/KubernetesSubmissions/tree/2.9/todo_cronjob) | `todo_cronjob` |
+| [2.10](https://github.com/Walter25S/KubernetesSubmissions/tree/2.10/todo_backend) | `todo_backend` / `monitoring` |
 
 ## Chapters 4-6
 

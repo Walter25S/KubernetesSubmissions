@@ -1,0 +1,32 @@
+# Loki as a single instance with local filesystem storage (development only).
+deploymentMode: SingleBinary
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+loki:
+  auth_enabled: true # the tenant id "1" is used by Alloy and Grafana
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  useTestSchema: true
+# The caches ask for several GB of memory by default: not needed locally.
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
