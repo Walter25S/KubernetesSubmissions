@@ -42,6 +42,7 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | [2.2](https://github.com/Walter25S/KubernetesSubmissions/tree/2.2/todo_app) | `todo_app` / `todo_backend` |
 | [2.3](https://github.com/Walter25S/KubernetesSubmissions/tree/2.3/log_output) | `log_output` / `ping_pong` / `namespaces` |
 | [2.4](https://github.com/Walter25S/KubernetesSubmissions/tree/2.4/todo_app) | `todo_app` / `todo_backend` / `volumes` / `namespaces` |
+| [2.5](https://github.com/Walter25S/KubernetesSubmissions/tree/2.5/log_output) | `log_output` |
 
 ## Chapters 4-6
 

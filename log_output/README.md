@@ -11,9 +11,13 @@ The app is split into two containers that run in the same pod and share an
 Example response:
 
 ```
-2026-10-04T18:35:54.288Z: f3c8419f-679e-4222-9199-e82509352b30.
+file content: this text is from file
+env variable: MESSAGE=hello world
+2026-10-04T18:47:01.532Z: 9f4ff83c-8635-4f71-ab56-12895be5a823.
 Ping / Pongs: 3
 ```
+
+The first two lines come from a ConfigMap (exercise 2.5), see below.
 
 If `ping_pong` cannot be reached, the second line says `Ping / Pongs: unavailable`.
 
@@ -21,7 +25,8 @@ If `ping_pong` cannot be reached, the second line says `Ping / Pongs: unavailabl
 
 ```bash
 FILE_PATH=/tmp/log.txt node writer/index.js &
-FILE_PATH=/tmp/log.txt PINGPONG_URL=http://localhost:3001/pings PORT=3000 node reader/index.js &
+echo 'this text is from file' > /tmp/information.txt
+FILE_PATH=/tmp/log.txt PINGPONG_URL=http://localhost:3001/pings INFO_FILE=/tmp/information.txt MESSAGE='hello world' PORT=3000 node reader/index.js &
 curl localhost:3000/
 ```
 
@@ -29,9 +34,9 @@ curl localhost:3000/
 
 ```bash
 docker build -t wallas25/log-output-writer:1.10 writer
-docker build -t wallas25/log-output-reader:2.1 reader
+docker build -t wallas25/log-output-reader:2.5 reader
 docker push wallas25/log-output-writer:1.10
-docker push wallas25/log-output-reader:2.1
+docker push wallas25/log-output-reader:2.5
 ```
 
 ## Deploy to the cluster
@@ -55,6 +60,24 @@ open http://localhost:8081.
 Note: `log.txt` lives on an `emptyDir`, so it is lost when the pod is
 recreated.
 
+## Configuration with a ConfigMap (exercise 2.5)
+
+`manifests/configmap.yaml` defines the ConfigMap `log-output-config` with:
+
+- the file `information.txt` (`this text is from file`), mounted as a volume at
+  `/usr/src/app/config` in the reader container (`INFO_FILE` points to it), and
+- the key `MESSAGE` (`hello world`), passed to the reader as the environment
+  variable `MESSAGE` with `configMapKeyRef`.
+
+```bash
+kubectl apply -f manifests/configmap.yaml
+kubectl get configmap -n exercises
+```
+
+Changing the text in the ConfigMap and applying it again updates the file in the
+running pod after a short delay (the environment variable only changes when the
+pod is recreated).
+
 ## Exercises
 
 - 1.1, 1.3, 1.7 (single-container version, see the corresponding releases)
@@ -62,3 +85,4 @@ recreated.
 - 1.11 (shared the ping-pong counter through a PersistentVolume, see its release)
 - 2.1 (gets the ping-pong counter over HTTP instead)
 - 2.3 (moved to the `exercises` namespace)
+- 2.5 (configuration from a ConfigMap)

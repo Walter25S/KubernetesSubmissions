@@ -4,10 +4,20 @@ const http = require('http');
 const port = process.env.PORT || 3000;
 const logFile = process.env.FILE_PATH || '/usr/src/app/files/log.txt';
 const pingPongUrl = process.env.PINGPONG_URL || 'http://ping-pong-svc:2346/pings';
+const infoFile = process.env.INFO_FILE || '/usr/src/app/config/information.txt';
+const message = process.env.MESSAGE || '';
 
 const lastLine = () => {
   const lines = fs.readFileSync(logFile, 'utf8').trim().split('\n');
   return lines[lines.length - 1];
+};
+
+const fileContent = () => {
+  try {
+    return fs.readFileSync(infoFile, 'utf8').trim();
+  } catch (err) {
+    return '';
+  }
 };
 
 const pingPongs = async () => {
@@ -37,7 +47,14 @@ const server = http.createServer(async (req, res) => {
       sendText(res, 503, 'Log file not available yet\n');
       return;
     }
-    sendText(res, 200, `${line}.\nPing / Pongs: ${await pingPongs()}\n`);
+    sendText(
+      res,
+      200,
+      `file content: ${fileContent()}\n` +
+        `env variable: MESSAGE=${message}\n` +
+        `${line}.\n` +
+        `Ping / Pongs: ${await pingPongs()}\n`,
+    );
     return;
   }
   sendText(res, 404, 'Not found\n');
