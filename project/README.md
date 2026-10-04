@@ -8,11 +8,13 @@ applies everything in the right order (the Namespace first).
 ```
 project/
   base/        what is the same everywhere: the namespace and the four parts
-  gke/         Google Kubernetes Engine = base + what GKE needs
+  gke/         Google Kubernetes Engine = base + what GKE needs (also used for the branches)
+  production/  GKE + the daily database backup, used for the main branch (namespace "project")
   k3d/         local k3d cluster       = base + what k3d needs
 ../todo_app/kustomization.yaml       # each part has its own kustomization.yaml
 ../todo_backend/kustomization.yaml
 ../todo_cronjob/kustomization.yaml
+../todo_backup/kustomization.yaml    # daily backup of the database to Cloud Storage (production only)
 ../volumes/kustomization.yaml        # local PersistentVolume (k3d only)
 ```
 
@@ -56,7 +58,7 @@ openssl rand -hex 16 | tr -d '\n' > /tmp/pgpw
 kubectl create secret generic postgres-secret -n project --from-file=POSTGRES_PASSWORD=/tmp/pgpw
 rm /tmp/pgpw
 
-kubectl apply -k project/gke
+kubectl apply -k project/production        # production = project/gke + the database backup
 kubectl get pods,pvc,gateway -n project     # the Gateway needs a few minutes to get its ADDRESS
 ```
 
@@ -86,6 +88,13 @@ to GKE every time something of the project is pushed to `main` (`todo_app/`,
 `todo_app` has the deployment strategy `Recreate`: its volume is `ReadWriteOnce`, so only one
 node can mount it, and the default `RollingUpdate` would start the new pod before the old one
 released the disk (a Multi-Attach error on GKE).
+
+### The database backup (exercise 3.10)
+
+Production (`main`) also has [../todo_backup](../todo_backup/README.md): a CronJob that saves a
+`pg_dump` of the database in Google Cloud Storage every 24 hours, authenticated with Workload
+Identity (no key). The pipeline deploys `project/production` for `main` and `project/gke` for the
+other branches, whose environments do not have the backup.
 
 ### One environment per branch (exercise 3.7)
 
@@ -268,3 +277,4 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 - 3.7 (one environment per branch)
 - 3.8 (deleting a branch deletes its environment)
 - 3.9 (DBaaS vs DIY comparison)
+- 3.10 (database backup, see ../todo_backup)

@@ -1,0 +1,95 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: todo-backup
+  namespace: project
+spec:
+  schedule: "0 3 * * *" # once per 24 hours, at 03:00 UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          serviceAccountName: todo-backup
+          restartPolicy: Never
+          volumes:
+            - name: backup
+              emptyDir: {}
+          # 1. dump the database to a file (the Postgres 16 client matches the server)
+          initContainers:
+            - name: dump
+              image: postgres:16-alpine
+              command: ["sh", "-c"]
+              args:
+                - |
+                  set -e
+                  pg_dump --no-owner --clean --if-exists | gzip > /backup/todos.sql.gz
+                  ls -l /backup/todos.sql.gz
+              env:
+                - name: PGHOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: todo-backend-config
+                      key: DB_HOST
+                - name: PGPORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: todo-backend-config
+                      key: DB_PORT
+                - name: PGDATABASE
+                  valueFrom:
+                    configMapKeyRef:
+                      name: todo-backend-config
+                      key: DB_NAME
+                - name: PGUSER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: todo-backend-config
+                      key: DB_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+          # 2. upload the file to Cloud Storage with the credentials of the Google service
+          #    account (Workload Identity, no key). `gcloud storage cp` would also need the
+          #    permission to read objects (it checks if the object exists), and this account
+          #    can only create them, so a compromised pod could not read or delete the
+          #    backups. The upload is done with the JSON API of Cloud Storage instead.
+          containers:
+            - name: upload
+              image: google/cloud-sdk:alpine
+              command: ["sh", "-c"]
+              args:
+                - |
+                  set -e
+                  FILE="todos-$(date -u +%Y-%m-%dT%H-%M-%SZ).sql.gz"
+                  TOKEN="$(gcloud auth print-access-token)"
+                  curl --silent --show-error --fail -X POST                     -H "Authorization: Bearer $TOKEN"                     -H "Content-Type: application/gzip"                     --data-binary @/backup/todos.sql.gz                     "https://storage.googleapis.com/upload/storage/v1/b/$BUCKET/o?uploadType=media&name=$FILE"                     > /dev/null
+                  echo "Backup saved to gs://$BUCKET/$FILE"
+              envFrom:
+                - configMapRef:
+                    name: todo-backup-config
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 384Mi

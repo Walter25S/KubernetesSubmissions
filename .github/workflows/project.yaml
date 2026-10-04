@@ -53,8 +53,12 @@ jobs:
             echo "::error::The branch name '$BRANCH' is not a valid namespace name (lowercase letters, digits and '-')"
             exit 1
           fi
+          # production also has the daily database backup (exercise 3.10); the environments of
+          # the branches do not (they would need the Google Cloud setup of the backup)
+          if [ "$BRANCH" = "main" ]; then OVERLAY=project/production; else OVERLAY=project/gke; fi
           echo "NAMESPACE=$NAMESPACE" >> "$GITHUB_ENV"
-          echo "Environment: namespace $NAMESPACE"
+          echo "OVERLAY=$OVERLAY" >> "$GITHUB_ENV"
+          echo "Environment: namespace $NAMESPACE, kustomization $OVERLAY"
 
       # No key is stored: GitHub issues a short-lived token that Google Cloud exchanges for
       # the credentials of the service account (Workload Identity Federation).
@@ -113,7 +117,7 @@ jobs:
             kustomize edit set image "wallas25/$IMAGE=$REGISTRY/$PROJECT_ID/$REPOSITORY/$IMAGE:$TAG"
           done
           cd ../..
-          kustomize build project/gke | kubectl apply -f -
+          kustomize build "$OVERLAY" | kubectl apply -f -
 
       - name: Check that the release worked
         run: |-
