@@ -78,6 +78,24 @@ Changing the text in the ConfigMap and applying it again updates the file in the
 running pod after a short delay (the environment variable only changes when the
 pod is recreated).
 
+## Deploy to Google Kubernetes Engine (exercise 3.2)
+
+`log_output` and `ping_pong` are exposed together with one Ingress in the `exercises`
+namespace (`manifests/ingress.yaml`: `/` to `log_output`, `/pingpong` to `ping_pong`).
+On GKE the Ingress needs `NodePort` Services, so the ones in [gke/](gke/) are used
+instead of `manifests/service.yaml`. The images must be on Docker Hub.
+
+```bash
+# ping_pong with its database first, see ../ping_pong/README.md (the Secret, gke/ ...)
+kubectl apply -f manifests/configmap.yaml -f manifests/deployment.yaml -f gke/ -f manifests/ingress.yaml
+kubectl get ingress -n exercises        # wait for ADDRESS; the backends need a few minutes to be HEALTHY
+```
+
+Then open `http://<ADDRESS>/` and `http://<ADDRESS>/pingpong`. While the load balancer
+is being created the requests can fail (404/502, or the connection is reset).
+The health of the backends can be seen with
+`kubectl get ingress log-output-ingress -n exercises -o jsonpath='{.metadata.annotations.ingress\.kubernetes\.io/backends}'`.
+
 ## Exercises
 
 - 1.1, 1.3, 1.7 (single-container version, see the corresponding releases)
@@ -86,3 +104,4 @@ pod is recreated).
 - 2.1 (gets the ping-pong counter over HTTP instead)
 - 2.3 (moved to the `exercises` namespace)
 - 2.5 (configuration from a ConfigMap)
+- 3.2 (deployed to GKE and exposed with an Ingress)

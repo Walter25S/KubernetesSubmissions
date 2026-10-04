@@ -86,16 +86,19 @@ kubectl run -it --rm --restart=Never -n exercises --image postgres:16-alpine psq
 # psql postgres://pingpong:<password>@postgres-svc:5432/pingpong
 ```
 
-## Deploy to Google Kubernetes Engine (exercise 3.1)
+## Deploy to Google Kubernetes Engine (exercises 3.1 and 3.2)
 
-On GKE the app is exposed with a `LoadBalancer` Service. The files that differ from
-the local k3d ones are in [gke/](gke/):
+The files that differ from the local k3d ones are in [gke/](gke/):
 
-- `gke/service.yaml`: `type: LoadBalancer`, external port `80` -> container port `3000`.
-  It replaces `manifests/service.yaml`, so do not apply both.
 - `gke/statefulset.yaml`: the same Postgres as `manifests/statefulset.yaml` without
   `storageClassName: local-path` (that class only exists in k3s); GKE provisions a
   persistent disk with its default class.
+- `gke/service.yaml`: replaces `manifests/service.yaml` (do not apply both). In
+  exercise 3.1 it was a `LoadBalancer` Service (external port 80); since exercise 3.2
+  it is a `NodePort` Service, which is what the GKE Ingress needs.
+- `gke/backendconfig.yaml`: tells GKE to health-check `/pings`. The GKE Ingress checks
+  every backend with `GET /` and ping-pong answers 404 there, so without this the
+  backend is `UNHEALTHY` and gets no traffic.
 
 The images must be on a registry the cluster can reach (Docker Hub); images imported
 with `k3d image import` do not exist in GKE.
@@ -105,12 +108,14 @@ with `k3d image import` do not exist in GKE.
 kubectl apply -f ../namespaces/exercises.yaml
 # create the Secret as described above (Secret "postgres-secret" in namespace exercises)
 kubectl apply -f manifests/configmap.yaml -f manifests/deployment.yaml -f gke/
-kubectl get svc -n exercises --watch        # wait until EXTERNAL-IP is not <pending>
-curl http://<EXTERNAL-IP>/pingpong
 ```
 
-The external IP takes a minute or two to appear and the first requests may fail
-while the load balancer is being set up; retry a few times.
+Exercise 3.1 (`LoadBalancer`): wait until `kubectl get svc -n exercises --watch` shows an
+`EXTERNAL-IP` and then `curl http://<EXTERNAL-IP>/pingpong`. The first requests may fail
+while the load balancer is being set up.
+
+Exercise 3.2 (Ingress): it is shared with `log_output`, see
+[../log_output/README.md](../log_output/README.md#deploy-to-google-kubernetes-engine-exercise-32).
 
 The load balancer and the cluster cost money (they consume the free credits). Delete
 the cluster when it is not needed: `gcloud container clusters delete <name> --zone=<zone>`.
@@ -122,3 +127,4 @@ the cluster when it is not needed: `gcloud container clusters delete <name> --zo
 - 2.3 (moved to the `exercises` namespace)
 - 2.7 (counter stored in Postgres, run as a StatefulSet)
 - 3.1 (deployed to GKE and exposed with a `LoadBalancer` Service)
+- 3.2 (exposed with the shared Ingress on GKE, `NodePort` Service and `BackendConfig`)
