@@ -12,12 +12,21 @@ spec:
       labels:
         app: todo-app
     spec:
+      volumes:
+        - name: image-cache
+          persistentVolumeClaim:
+            claimName: shared-claim
       containers:
         - name: todo-app
-          image: wallas25/todo-app:1.5
+          image: wallas25/todo-app:1.12
           env:
             - name: PORT
               value: "3000"
+            - name: ENABLE_SHUTDOWN
+              value: "true"
+          volumeMounts:
+            - name: image-cache
+              mountPath: /usr/src/app/files
           resources:
             requests:
               cpu: 50m
