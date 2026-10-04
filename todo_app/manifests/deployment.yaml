@@ -18,12 +18,14 @@ spec:
             claimName: shared-claim
       containers:
         - name: todo-app
-          image: wallas25/todo-app:1.13
+          image: wallas25/todo-app:2.2
           env:
             - name: PORT
               value: "3000"
             - name: ENABLE_SHUTDOWN
               value: "true"
+            - name: TODO_BACKEND_URL
+              value: http://todo-backend-svc:2345
           volumeMounts:
             - name: image-cache
               mountPath: /usr/src/app/files

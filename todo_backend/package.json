@@ -1,0 +1,8 @@
+{
+  "name": "todo-backend",
+  "version": "1.0.0",
+  "description": "Stores the todos of the project (in memory)",
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "license": "MIT"
+}

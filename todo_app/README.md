@@ -8,9 +8,18 @@ environment variable (default `3000`).
 
 | Method and path | Description |
 | --------------- | ----------- |
-| `GET /` | HTML page with the picture, a todo input (max 140 characters), a Send button and a list of hardcoded todos. The button does not send anything yet. |
+| `GET /` | HTML page with the picture, the todo form (max 140 characters) and the list of todos, rendered on the server with the todos it gets from `todo_backend`. |
+| `POST /todos` | Receives the form (`todo=...`), validates it and forwards it to `todo_backend`, then redirects (`303`) to `/`. |
 | `GET /image` | The cached random picture (JPEG). |
 | `POST /shutdown` | Stops the process (only when `ENABLE_SHUTDOWN=true`); used to test that the picture survives a container crash. |
+
+## Todos (exercise 2.2)
+
+The todos are not stored here: they are kept by the
+[todo_backend](../todo_backend/README.md) service, which this app reaches at
+`TODO_BACKEND_URL` (default `http://todo-backend-svc:2345`). The backend is not
+exposed outside the cluster; the browser only talks to this app. If the backend
+is down the page still loads and shows a message.
 
 ## The hourly picture (exercise 1.12)
 
@@ -35,8 +44,8 @@ PORT=3000 IMAGE_DIR=/tmp/todo-images node index.js
 ## Build and push the image
 
 ```bash
-docker build -t wallas25/todo-app:1.13 .
-docker push wallas25/todo-app:1.13
+docker build -t wallas25/todo-app:2.2 .
+docker push wallas25/todo-app:2.2
 ```
 
 ## Deploy to the cluster
@@ -45,6 +54,7 @@ docker push wallas25/todo-app:1.13
 k3d cluster create --port 8082:30080@agent:0 -p 8081:80@loadbalancer --agents 2
 docker exec k3d-k3s-default-agent-0 sh -c "mkdir -p /tmp/kube && chmod 777 /tmp/kube"
 kubectl apply -f ../volumes/
+kubectl apply -f ../todo_backend/manifests/
 kubectl apply -f manifests/
 ```
 
@@ -62,3 +72,4 @@ at a time until the apps get their own routes.
 - 1.2, 1.4, 1.5, 1.6, 1.8 (see the corresponding releases)
 - 1.12 (picture cached in a PersistentVolume)
 - 1.13 (todo input, Send button and hardcoded todo list)
+- 2.2 (todos created and listed through `todo_backend`)

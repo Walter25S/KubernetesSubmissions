@@ -1,0 +1,38 @@
+# todo_backend
+
+Service that stores the todos of the project. The todos are kept in memory
+(they are lost when the pod restarts); a database comes later in the course.
+The port is chosen with `PORT` (default `3000`).
+
+| Method and path | Description |
+| --------------- | ----------- |
+| `GET /todos` | Returns the list of todos as JSON: `[{"id": 1, "todo": "Buy milk"}]`. |
+| `POST /todos` | Creates a todo from the JSON body `{"todo": "Buy milk"}` and returns it with status `201`. A todo must have 1-140 characters, otherwise the response is `400`. |
+
+It is only reachable inside the cluster, through the Service `todo-backend-svc`
+(`http://todo-backend-svc:2345`); `todo_app` talks to it.
+
+## Run locally
+
+```bash
+PORT=3001 node index.js
+curl -X POST -H 'Content-Type: application/json' -d '{"todo":"Buy milk"}' localhost:3001/todos
+curl localhost:3001/todos
+```
+
+## Build and push the image
+
+```bash
+docker build -t wallas25/todo-backend:2.2 .
+docker push wallas25/todo-backend:2.2
+```
+
+## Deploy to the cluster
+
+```bash
+kubectl apply -f manifests/
+```
+
+## Exercises
+
+- 2.2
