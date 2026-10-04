@@ -27,6 +27,11 @@ kubectl logs -f deployment/todo-app-dep
 The port is not reachable from outside the cluster yet; networking is
 configured in later exercises.
 
+The deployment is declared in `manifests/deployment.yaml` (exercise 1.4),
+including the `PORT` environment variable and CPU/memory requests and limits.
+After editing it, re-apply with the same `kubectl apply -f` command.
+
 ## Exercises
 
 - 1.2
+- 1.4
