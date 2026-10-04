@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Env / secrets (never commit these; use sops/age-encrypted files if needed)
+.env
+*.key
+*.agekey
+secret.yaml
+!secret.enc.yaml
+
+# Local kubeconfig
+kubeconfig*
