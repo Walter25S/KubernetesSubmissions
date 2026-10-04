@@ -1,8 +1,10 @@
 # ping_pong
 
 Responds with `pong N` to `GET /pingpong`, where `N` is a counter kept in
-memory that grows with every request (it resets when the pod restarts).
-The port is chosen with the `PORT` environment variable (default `3000`).
+the number of requests received so far. Since exercise 1.11 the counter is
+saved to `pingpong.txt` in a PersistentVolume (`COUNTER_FILE`, default
+`/usr/src/app/files/pingpong.txt`) and restored on startup, so it survives pod
+restarts. The port is chosen with the `PORT` environment variable (default `3000`).
 
 ## Run locally
 
@@ -14,13 +16,16 @@ curl localhost:3000/pingpong   # pong 0, then pong 1, ...
 ## Build and push the image
 
 ```bash
-docker build -t wallas25/ping-pong:1.9 .
-docker push wallas25/ping-pong:1.9
+docker build -t wallas25/ping-pong:1.11 .
+docker push wallas25/ping-pong:1.11
 ```
 
 ## Deploy to the cluster
 
+The shared volume must exist first, see [../volumes](../volumes/README.md):
+
 ```bash
+kubectl apply -f ../volumes/
 kubectl apply -f manifests/
 ```
 
@@ -33,3 +38,4 @@ open http://localhost:8081/pingpong.
 ## Exercises
 
 - 1.9
+- 1.11
