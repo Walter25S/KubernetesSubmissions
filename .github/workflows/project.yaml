@@ -1,0 +1,87 @@
+name: Release project
+
+# Builds the three images of the project, publishes them to Google Artifact Registry and
+# deploys them to the GKE cluster with Kustomize (exercise 3.6).
+# It only runs when something of the project changes.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - todo_app/**
+      - todo_backend/**
+      - todo_cronjob/**
+      - project/**
+      - .github/workflows/project.yaml
+
+permissions:
+  contents: read
+  id-token: write # lets the job ask GitHub for a token to authenticate to Google Cloud
+
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
+  GKE_CLUSTER: dwk-cluster
+  GKE_ZONE: us-central1-a
+  REGISTRY: us-central1-docker.pkg.dev
+  REPOSITORY: my-repository
+  NAMESPACE: project
+  BRANCH: ${{ github.ref_name }}
+
+jobs:
+  build-publish-deploy:
+    name: Build, Publish and Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # No key is stored: GitHub issues a short-lived token that Google Cloud exchanges for
+      # the credentials of the service account (Workload Identity Federation).
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Allow docker to push to Artifact Registry
+        run: gcloud --quiet auth configure-docker "$REGISTRY"
+
+      - name: Get the credentials of the GKE cluster
+        uses: google-github-actions/get-gke-credentials@v3
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          project_id: ${{ env.PROJECT_ID }}
+          location: ${{ env.GKE_ZONE }}
+
+      # <registry>/<project>/<repository>/<image>:<branch>-<commit sha>
+      - name: Build and publish the images
+        run: |-
+          TAG="$BRANCH-$GITHUB_SHA"
+          for IMAGE in todo-app todo-backend todo-cronjob; do
+            NAME="$REGISTRY/$PROJECT_ID/$REPOSITORY/$IMAGE"
+            docker build --tag "$NAME:$TAG" "${IMAGE//-/_}"
+            docker push "$NAME:$TAG"
+          done
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v3
+
+      - name: Deploy
+        run: |-
+          cd project/gke
+          for IMAGE in todo-app todo-backend todo-cronjob; do
+            kustomize edit set image "wallas25/$IMAGE=$REGISTRY/$PROJECT_ID/$REPOSITORY/$IMAGE:$TAG"
+          done
+          cd ../..
+          kustomize build project/gke | kubectl apply -f -
+
+      - name: Check that the release worked
+        run: |-
+          kubectl rollout status statefulset/postgres-stset -n "$NAMESPACE" --timeout=300s
+          kubectl rollout status deployment/todo-backend-dep -n "$NAMESPACE" --timeout=300s
+          kubectl rollout status deployment/todo-app-dep -n "$NAMESPACE" --timeout=300s
+          kubectl get pods,svc,gateway -n "$NAMESPACE" -o wide

@@ -69,6 +69,68 @@ created).
 kubectl apply -k project/k3d      # after creating the Secret and the directory on the node, see ../volumes/README.md
 ```
 
+## Deployment pipeline (exercise 3.6)
+
+[../.github/workflows/project.yaml](../.github/workflows/project.yaml) deploys the project
+to GKE every time something of the project is pushed to `main` (`todo_app/`,
+`todo_backend/`, `todo_cronjob/`, `project/` or the workflow itself). The job:
+
+1. authenticates to Google Cloud,
+2. builds the three images and publishes them to **Google Artifact Registry**, tagged
+   `<branch>-<commit sha>`:
+   `us-central1-docker.pkg.dev/<project>/my-repository/<image>:main-<sha>`,
+3. points the `images:` block of `project/gke/kustomization.yaml` to those images
+   (`kustomize edit set image`) and applies it with `kustomize build | kubectl apply`,
+4. waits for the rollouts of the database, the backend and the app.
+
+`todo_app` has the deployment strategy `Recreate`: its volume is `ReadWriteOnce`, so only one
+node can mount it, and the default `RollingUpdate` would start the new pod before the old one
+released the disk (a Multi-Attach error on GKE).
+
+### How the pipeline logs in (no keys are stored)
+
+It uses **Workload Identity Federation**: the job asks GitHub for a short-lived token, Google
+Cloud checks it and exchanges it for the credentials of a service account. Only this repository
+is trusted. What was created in Google Cloud (project `PROJECT_ID`, number `PROJECT_NUMBER`):
+
+```bash
+# APIs and the Docker repository for the images (same region as the cluster)
+gcloud services enable artifactregistry.googleapis.com iamcredentials.googleapis.com   sts.googleapis.com cloudresourcemanager.googleapis.com
+gcloud artifacts repositories create my-repository --repository-format=docker --location=us-central1
+
+# the identity the pipeline acts as, with the least permissions it needs:
+# push images, and work with the objects inside the cluster (not manage the cluster)
+gcloud iam service-accounts create github-actions-sa --display-name="GitHub Actions SA"
+gcloud projects add-iam-policy-binding PROJECT_ID --role=roles/artifactregistry.writer   --member="serviceAccount:github-actions-sa@PROJECT_ID.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding PROJECT_ID --role=roles/container.developer   --member="serviceAccount:github-actions-sa@PROJECT_ID.iam.gserviceaccount.com"
+
+# trust GitHub tokens, but only the ones of this repository
+gcloud iam workload-identity-pools create github-pool --location=global
+gcloud iam workload-identity-pools providers create-oidc github-provider --location=global   --workload-identity-pool=github-pool   --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository"   --attribute-condition="assertion.repository=='Walter25S/KubernetesSubmissions'"   --issuer-uri="https://token.actions.githubusercontent.com"
+
+# allow that repository to act as the service account
+gcloud iam service-accounts add-iam-policy-binding github-actions-sa@PROJECT_ID.iam.gserviceaccount.com   --role=roles/iam.workloadIdentityUser   --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/Walter25S/KubernetesSubmissions"
+```
+
+### GitHub secrets
+
+In the repository: *Settings -> Secrets and variables -> Actions -> New repository secret*.
+They are identifiers, not passwords, but the course keeps them as secrets:
+
+| Secret | Value |
+| ------ | ----- |
+| `GKE_PROJECT` | the Google Cloud project ID |
+| `SERVICE_ACCOUNT` | `github-actions-sa@PROJECT_ID.iam.gserviceaccount.com` |
+| `WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+
+The cluster name and zone (`dwk-cluster`, `us-central1-a`) are in the `env:` of the workflow;
+change them if the cluster is created with other values. The cluster has to exist and the
+database Secret has to be created by hand once (see above): the pipeline does not touch it.
+
+Artifact Registry is not free: delete old images (`gcloud artifacts docker images delete ...`)
+or the whole repository (`gcloud artifacts repositories delete my-repository --location=us-central1`)
+when it is not needed.
+
 ## Remove it
 
 ```bash
@@ -81,4 +143,5 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 
 ## Exercises
 
-- 3.5
+- 3.5 (Kustomize)
+- 3.6 (deployment pipeline with GitHub Actions)
