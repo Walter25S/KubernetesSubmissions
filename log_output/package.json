@@ -1,0 +1,10 @@
+{
+  "name": "log-output",
+  "version": "1.0.0",
+  "description": "Generates a random string on startup and logs it every 5 seconds",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "MIT"
+}

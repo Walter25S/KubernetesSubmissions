@@ -1,21 +1,37 @@
 # log_output
 
-## Description
+Generates a random string (UUID) on startup, keeps it in memory and prints it
+every 5 seconds with an ISO timestamp:
 
-TODO: what this application does.
-
-## Requirements
-
-- Docker
-- A local Kubernetes cluster (k3d)
-- kubectl
-
-## Build and run
-
-```bash
-# TODO: docker build / kubectl apply commands
+```
+2026-10-04T16:58:15.747Z: 4599f857-8994-42cd-86d1-033e40874e2c
+2026-10-04T16:58:20.765Z: 4599f857-8994-42cd-86d1-033e40874e2c
 ```
 
-## Exercises using this app
+## Run locally
 
-TODO: list exercise numbers.
+```bash
+node index.js
+```
+
+## Build and push the image
+
+The image is published under the Docker Hub user `wallas25`.
+
+```bash
+docker build -t wallas25/log-output:1.1 .
+docker push wallas25/log-output:1.1
+```
+
+## Deploy to the cluster
+
+```bash
+k3d cluster create -a 2
+kubectl apply -f manifests/deployment.yaml
+kubectl get pods
+kubectl logs -f deployment/log-output-dep
+```
+
+## Exercises
+
+- 1.1
