@@ -24,21 +24,24 @@ kubectl apply -f manifests/deployment.yaml
 kubectl logs -f deployment/todo-app-dep
 ```
 
-`GET /` returns a simple HTML page. The port is not exposed outside the
-cluster yet (that comes with Services/Ingress); to try it, forward it:
+`GET /` returns a simple HTML page.
+
+## Access from outside the cluster (exercise 1.6)
+
+`manifests/service.yaml` defines a `NodePort` Service: port `2345` inside the
+cluster, `targetPort` 3000 (the container) and `nodePort` 30080 on the nodes.
+The cluster must be created with the port published:
 
 ```bash
-kubectl port-forward deployment/todo-app-dep 3003:3000
+k3d cluster create --port 8082:30080@agent:0 -p 8081:80@loadbalancer --agents 2
+kubectl apply -f manifests/
 ```
 
-and open http://localhost:3003.
-
-The deployment is declared in `manifests/deployment.yaml` (exercise 1.4),
-including the `PORT` environment variable and CPU/memory requests and limits.
-After editing it, re-apply with the same `kubectl apply -f` command.
+Then open http://localhost:8082.
 
 ## Exercises
 
 - 1.2
 - 1.4
 - 1.5
+- 1.6
