@@ -84,6 +84,53 @@ kubectl exec -n project deploy/todo-app-dep -- node -e "fetch('http://todo-backe
 The answer is `400` and the query `{namespace="project"} |= "rejected todo"` shows
 `rejected todo (141 characters, limit 140): "zzzz..."`.
 
+## Prometheus (exercises 4.3 and 4.4)
+
+[Prometheus](https://prometheus.io/) stores metrics, such as the CPU used by a container or how many pods
+there are. It is installed with Helm in its own namespace (`prometheus`), release name `prom`, using
+[prometheus-values.yaml](prometheus-values.yaml): no alert manager and no push gateway (like in the course),
+no disk, the data is kept for 6 hours and it scrapes every 30 s. Besides the server it installs
+`kube-state-metrics`, which turns the objects of Kubernetes into metrics (`kube_pod_info`, ...), and a
+`node-exporter` on every node.
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm upgrade --install prom prometheus-community/prometheus --namespace prometheus \
+  --create-namespace --values prometheus-values.yaml
+kubectl get pods -n prometheus
+```
+
+It was installed in the local k3d cluster. (The GKE cluster of the course has e2-small nodes that are
+almost full; adding this and Argo Rollouts there needs another node.)
+
+Open its page through the Service of the server and write queries in the *Graph* tab:
+
+```bash
+kubectl port-forward svc/prom-prometheus-server -n prometheus 9090:80
+# http://localhost:9090
+```
+
+### The query of exercise 4.3
+
+*"The number of pods created by StatefulSets in a namespace."* `kube_pod_info` has one series per pod and,
+among others, the labels `namespace`, `pod` and **`created_by_kind`** (what created the pod: `ReplicaSet`,
+`StatefulSet`, `DaemonSet`, `Job`...), so the query is:
+
+```
+count(kube_pod_info{namespace="prometheus", created_by_kind="StatefulSet"})
+```
+
+(change the namespace as needed). In this cluster the pods created by StatefulSets are `loki-0`
+(`monitoring`), `postgres-stset-0` (`exercises`) and `postgres-stset-0` (`project`): one in each of those
+namespaces, 3 in total with `count(kube_pod_info{created_by_kind="StatefulSet"})`, and none in
+`prometheus`, whose server is a Deployment in this chart (the result is empty, not 0). The numbers, as
+asked to the Prometheus API, are in [docs/prometheus-statefulset-pods.txt](docs/prometheus-statefulset-pods.txt).
+`count by (namespace) (kube_pod_info{created_by_kind="StatefulSet"})` shows all the namespaces at once.
+
+Prometheus is also what the canary release of [exercise 4.4](../ping_pong/rollout/README.md) asks
+to decide if a new version is good.
+
 ## Remove it
 
 ```bash

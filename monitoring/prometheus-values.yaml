@@ -1,0 +1,47 @@
+# Prometheus for the GKE cluster (exercises 4.3 and 4.4), installed in the namespace "prometheus"
+# with the chart prometheus-community/prometheus. Tuned for small nodes (e2-small) and for
+# short-lived data: nothing here is meant to be a production setup.
+
+# like in the course: no alerting and no push gateway, and the metrics stay in this Prometheus
+alertmanager:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
+
+server:
+  remoteWrite: []
+  # no disk: the metrics are lost if the pod is recreated (enough to follow a rollout)
+  persistentVolume:
+    enabled: false
+  retention: 6h
+  global:
+    # the analysis of a rollout needs data soon; the default (1m) is slow for a few minutes test
+    scrape_interval: 30s
+    evaluation_interval: 30s
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 384Mi
+
+# kube_pod_info and the other kube_* metrics (exercise 4.3)
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 96Mi
+
+# metrics of every node (one pod per node)
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 48Mi

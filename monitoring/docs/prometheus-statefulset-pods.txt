@@ -1,0 +1,27 @@
+Result of the queries of exercise 4.3, asked to the Prometheus of the k3d cluster
+(http://prom-prometheus-server.prometheus, release "prom") on 2026-10-04.
+
+The labels of kube_pod_info of a pod that is created by a StatefulSet:
+
+  {namespace="exercises", pod="postgres-stset-0", created_by_kind="StatefulSet",
+   created_by_name="postgres-stset", node="k3d-k3s-default-agent-0"}
+
+Query (number of pods created by StatefulSets in one namespace):
+
+  count(kube_pod_info{namespace="<namespace>", created_by_kind="StatefulSet"})
+
+  namespace="monitoring"    => 1   (loki-0)
+  namespace="exercises"     => 1   (postgres-stset-0)
+  namespace="project"       => 1   (postgres-stset-0)
+  namespace="prometheus"    => empty: this chart runs the Prometheus server as a Deployment, so
+                               there are no pods created by a StatefulSet in that namespace
+
+Query (all the namespaces at once):
+
+  count by (namespace) (kube_pod_info{created_by_kind="StatefulSet"})
+
+  {namespace="project"}     => 1
+  {namespace="exercises"}   => 1
+  {namespace="monitoring"}  => 1
+
+  count(kube_pod_info{created_by_kind="StatefulSet"})   => 3
