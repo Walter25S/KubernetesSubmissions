@@ -15,7 +15,19 @@ spec:
     spec:
       containers:
         - name: ping-pong
-          image: wallas25/ping-pong:2.1
+          image: wallas25/ping-pong:2.7
+          envFrom:
+            - configMapRef:
+                name: ping-pong-config
           env:
-            - name: PORT
-              value: "3000"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /pings
+              port: 3000
+            initialDelaySeconds: 2
+            periodSeconds: 5
