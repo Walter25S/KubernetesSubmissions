@@ -1,0 +1,8 @@
+{
+  "name": "todo-cronjob",
+  "version": "1.0.0",
+  "description": "Creates a todo to read a random Wikipedia article",
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "license": "MIT"
+}
