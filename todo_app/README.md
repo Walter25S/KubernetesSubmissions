@@ -53,9 +53,11 @@ docker push wallas25/todo-app:2.2
 ```bash
 k3d cluster create --port 8082:30080@agent:0 -p 8081:80@loadbalancer --agents 2
 docker exec k3d-k3s-default-agent-0 sh -c "mkdir -p /tmp/kube && chmod 777 /tmp/kube"
+kubectl apply -f ../namespaces/project.yaml
 kubectl apply -f ../volumes/
 kubectl apply -f ../todo_backend/manifests/
 kubectl apply -f manifests/
+kubectl get all -n project
 ```
 
 ## Access
@@ -64,8 +66,9 @@ Exercise 1.8 exposes the app with an Ingress: `manifests/service.yaml` is a
 `ClusterIP` Service (2345 -> 3000) and `manifests/ingress.yaml` routes `/` to
 it. Open http://localhost:8081.
 
-The `log_output` Ingress also uses `/`, so only one of the two can be applied
-at a time until the apps get their own routes.
+The app runs in the `project` namespace (exercise 2.4). The `log_output` Ingress
+(namespace `exercises`) also uses `/`, so only one of the two can be applied at a
+time until the apps get their own routes.
 
 ## Exercises
 
@@ -73,3 +76,4 @@ at a time until the apps get their own routes.
 - 1.12 (picture cached in a PersistentVolume)
 - 1.13 (todo input, Send button and hardcoded todo list)
 - 2.2 (todos created and listed through `todo_backend`)
+- 2.4 (moved to the `project` namespace)

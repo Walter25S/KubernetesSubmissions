@@ -10,7 +10,8 @@ The port is chosen with `PORT` (default `3000`).
 | `POST /todos` | Creates a todo from the JSON body `{"todo": "Buy milk"}` and returns it with status `201`. A todo must have 1-140 characters, otherwise the response is `400`. |
 
 It is only reachable inside the cluster, through the Service `todo-backend-svc`
-(`http://todo-backend-svc:2345`); `todo_app` talks to it.
+(`http://todo-backend-svc:2345` from the `project` namespace, or
+`todo-backend-svc.project` from another one); `todo_app` talks to it.
 
 ## Run locally
 
@@ -29,10 +30,14 @@ docker push wallas25/todo-backend:2.2
 
 ## Deploy to the cluster
 
+The app runs in the `project` namespace (exercise 2.4):
+
 ```bash
+kubectl apply -f ../namespaces/project.yaml
 kubectl apply -f manifests/
 ```
 
 ## Exercises
 
 - 2.2
+- 2.4 (moved to the `project` namespace)
