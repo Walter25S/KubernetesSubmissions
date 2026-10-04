@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Google Kubernetes Engine: the common base plus what is different in GKE.
+resources:
+  - ../base
+  - pvc.yaml
+  - gateway.yaml
+  - httproute.yaml
+
+patches:
+  # the disk of todo_app must be writable by the non-root user of the image
+  - path: todo-app-volume-permissions.yaml
+  # Postgres: "local-path" is a k3s storage class that does not exist in GKE; removing it
+  # makes GKE use its default class. GKE disks are not that small, so ask for 1Gi.
+  - target:
+      kind: StatefulSet
+      name: postgres-stset
+    patch: |-
+      - op: remove
+        path: /spec/volumeClaimTemplates/0/spec/storageClassName
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 1Gi
+
+# The image of each part. This is what the deployment pipeline changes to roll out a new
+# version (kustomize edit set image), instead of editing the Deployments.
+images:
+  - name: wallas25/todo-app
+    newTag: "2.6"
+  - name: wallas25/todo-backend
+    newTag: "2.10"
+  - name: wallas25/todo-cronjob
+    newTag: "2.9"

@@ -1,0 +1,13 @@
+# Claim for the picture cache of todo_app. On GKE no PersistentVolume is created by hand:
+# the default storage class provisions a persistent disk for the claim.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-claim
+  namespace: project
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Local PersistentVolume and its claim (k3d only, see README.md).
+resources:
+  - persistentvolume.yaml
+  - persistentvolumeclaim.yaml

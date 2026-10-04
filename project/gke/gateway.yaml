@@ -1,0 +1,15 @@
+# Google Cloud HTTP load balancer for the project (Gateway API, see exercise 3.3).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: project-gateway
+  namespace: project
+spec:
+  gatewayClassName: gke-l7-global-external-managed
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        kinds:
+          - kind: HTTPRoute

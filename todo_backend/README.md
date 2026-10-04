@@ -76,7 +76,7 @@ cluster before the StatefulSet (it generates a random password and does not
 print it; `secret.example.yaml` only shows the shape):
 
 ```bash
-kubectl apply -f ../namespaces/project.yaml
+kubectl apply -f ../project/base/namespace.yaml
 openssl rand -hex 16 | tr -d '
 ' > /tmp/pgpw
 kubectl create secret generic postgres-secret -n project --from-file=POSTGRES_PASSWORD=/tmp/pgpw
@@ -109,7 +109,7 @@ docker push wallas25/todo-backend:2.10
 The app runs in the `project` namespace (exercise 2.4):
 
 ```bash
-kubectl apply -f ../namespaces/project.yaml
+kubectl apply -f ../project/base/namespace.yaml
 # create the Secret as described above, then:
 kubectl apply -f manifests/
 kubectl get statefulset,pods,pvc -n project

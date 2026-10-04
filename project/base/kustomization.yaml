@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# What is the same in every environment: the namespace and the four parts of the project.
+# Each folder has its own kustomization.yaml; Kustomize can use a folder as a base but
+# not a file outside of its own folder, which is why the apps are referenced as folders.
+resources:
+  - namespace.yaml
+  - ../../todo_app
+  - ../../todo_backend
+  - ../../todo_cronjob

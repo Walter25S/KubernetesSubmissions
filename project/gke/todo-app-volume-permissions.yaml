@@ -1,0 +1,13 @@
+# The todo-app image runs as the non-root user "node" (uid/gid 1000). A disk mounted by
+# GKE belongs to root, so Kubernetes is asked to make the volume writable for group 1000
+# (without this the app cannot create its picture directory and crashes on startup).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-app-dep
+  namespace: project
+spec:
+  template:
+    spec:
+      securityContext:
+        fsGroup: 1000

@@ -23,7 +23,7 @@ docker exec k3d-k3s-default-agent-0 sh -c "mkdir -p /tmp/kube && chmod 777 /tmp/
 kubectl apply -f volumes/
 ```
 
-Apply this before the applications (and after `namespaces/project.yaml`). If the
+Apply this before the applications (and after `project/base/namespace.yaml`). If the
 cluster is recreated, repeat both steps.
 
 ### Moving the claim to another namespace

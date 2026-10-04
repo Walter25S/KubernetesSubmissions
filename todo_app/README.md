@@ -79,7 +79,7 @@ docker push wallas25/todo-app:2.2
 ```bash
 k3d cluster create --port 8082:30080@agent:0 -p 8081:80@loadbalancer --agents 2
 docker exec k3d-k3s-default-agent-0 sh -c "mkdir -p /tmp/kube && chmod 777 /tmp/kube"
-kubectl apply -f ../namespaces/project.yaml
+kubectl apply -f ../project/base/namespace.yaml
 kubectl apply -f ../volumes/
 # the backend needs its database Secret first, see ../todo_backend/README.md
 kubectl apply -f ../todo_backend/manifests/
@@ -89,13 +89,18 @@ kubectl get all -n project
 
 ## Access
 
-Exercise 1.8 exposes the app with an Ingress: `manifests/service.yaml` is a
-`ClusterIP` Service (2345 -> 3000) and `manifests/ingress.yaml` routes `/` to
-it. Open http://localhost:8081.
+Exercise 1.8 exposed the app with an Ingress (a `ClusterIP` Service in
+`manifests/service.yaml` plus an Ingress). Since exercise 3.5 the Ingress lives in
+[../project/k3d/ingress.yaml](../project/k3d/ingress.yaml), because how the app is
+exposed depends on the environment (k3d uses Ingress, GKE uses the Gateway API). Open
+http://localhost:8081 in the local cluster.
 
 The app runs in the `project` namespace (exercise 2.4). The `log_output` Ingress
 (namespace `exercises`) also uses `/`, so only one of the two can be applied at a
-time until the apps get their own routes.
+time in the local cluster.
+
+The whole project is deployed with Kustomize, see [../project/README.md](../project/README.md);
+this folder has its own `kustomization.yaml`.
 
 ## Exercises
 
@@ -105,3 +110,4 @@ time until the apps get their own routes.
 - 2.2 (todos created and listed through `todo_backend`)
 - 2.4 (moved to the `project` namespace)
 - 2.6 (configuration in a ConfigMap, nothing hard coded)
+- 3.5 (deployed with Kustomize to GKE, see ../project)
