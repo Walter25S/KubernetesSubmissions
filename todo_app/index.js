@@ -44,6 +44,14 @@ const imageAge = () => {
   }
 };
 
+const MAX_TODO_LENGTH = 140;
+
+const todos = [
+  'Learn how Deployments work',
+  'Expose the app with an Ingress',
+  'Persist the picture in a volume',
+];
+
 const page = `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -54,6 +62,23 @@ const page = `<!DOCTYPE html>
     <h1>Todo app</h1>
     <img src="/image" alt="Random picture" width="400" />
     <p>The picture changes every 10 minutes.</p>
+
+    <form onsubmit="return false">
+      <input
+        id="todo-input"
+        type="text"
+        maxlength="${MAX_TODO_LENGTH}"
+        placeholder="What needs to be done?"
+        aria-label="New todo"
+      />
+      <button type="submit">Send</button>
+      <small>Max ${MAX_TODO_LENGTH} characters</small>
+    </form>
+
+    <h2>Todos</h2>
+    <ul>
+${todos.map((todo) => `      <li>${todo}</li>`).join('\n')}
+    </ul>
   </body>
 </html>
 `;

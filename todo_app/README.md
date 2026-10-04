@@ -8,7 +8,7 @@ environment variable (default `3000`).
 
 | Method and path | Description |
 | --------------- | ----------- |
-| `GET /` | Simple HTML page that shows the picture. |
+| `GET /` | HTML page with the picture, a todo input (max 140 characters), a Send button and a list of hardcoded todos. The button does not send anything yet. |
 | `GET /image` | The cached random picture (JPEG). |
 | `POST /shutdown` | Stops the process (only when `ENABLE_SHUTDOWN=true`); used to test that the picture survives a container crash. |
 
@@ -35,8 +35,8 @@ PORT=3000 IMAGE_DIR=/tmp/todo-images node index.js
 ## Build and push the image
 
 ```bash
-docker build -t wallas25/todo-app:1.12 .
-docker push wallas25/todo-app:1.12
+docker build -t wallas25/todo-app:1.13 .
+docker push wallas25/todo-app:1.13
 ```
 
 ## Deploy to the cluster
@@ -61,3 +61,4 @@ at a time until the apps get their own routes.
 
 - 1.2, 1.4, 1.5, 1.6, 1.8 (see the corresponding releases)
 - 1.12 (picture cached in a PersistentVolume)
+- 1.13 (todo input, Send button and hardcoded todo list)

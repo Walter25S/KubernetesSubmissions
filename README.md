@@ -30,7 +30,7 @@ Course: https://courses.mooc.fi/org/uh-cs/courses/devops-with-kubernetes-2026
 | [1.10](https://github.com/Walter25S/KubernetesSubmissions/tree/1.10/log_output) | `log_output` |
 | [1.11](https://github.com/Walter25S/KubernetesSubmissions/tree/1.11/log_output) | `log_output` / `ping_pong` / `volumes` |
 | [1.12](https://github.com/Walter25S/KubernetesSubmissions/tree/1.12/todo_app) | `todo_app` |
-| 1.13 | `todo_app` |
+| [1.13](https://github.com/Walter25S/KubernetesSubmissions/tree/1.13/todo_app) | `todo_app` |
 
 _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 
