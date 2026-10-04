@@ -71,6 +71,30 @@ created).
 kubectl apply -k project/k3d      # after creating the Secret and the directory on the node, see ../volumes/README.md
 ```
 
+## Health checks: readiness and liveness probes (exercise 4.2)
+
+Kubernetes uses two kinds of probe, with different consequences when they fail:
+
+- **readiness**: "can this pod receive traffic?". If it fails the pod is taken out of the Service (it shows
+  `0/1`), but it **is not restarted**.
+- **liveness**: "is this container alive?". If it fails the container **is restarted**.
+
+| Container | Readiness | Liveness |
+| --------- | --------- | -------- |
+| `todo-app` | `/readyz`: healthy and the backend is connected to the database | `/healthz`: `500` after the "Break the app" button |
+| `todo-backend` | `/healthz`: connected to the database (`SELECT 1`) | `/livez`: the process answers (no database check) |
+| `postgres` | (none) | (none) |
+
+The database is never behind a liveness probe of the applications: if Postgres is down, restarting the
+backend or the app would not fix anything. They just become *not ready* and recover by themselves when the
+database is back; the readiness of `todo-app` follows the one of the backend, so the whole chain goes
+`0/1` and back to `1/1` without any restart. The liveness probe of `todo-app` is for the case in which
+the process is running but broken, which the **"Break the app"** button simulates; see
+[../todo_app/README.md](../todo_app/README.md#probes-and-the-break-the-app-button-exercise-42).
+
+On GKE the load balancer of the Gateway has its own health check, `GET /`. While the app is broken `/`
+answers `503`, so Google Cloud also stops sending traffic to it until the container is restarted.
+
 ## Resource requests and limits (exercise 3.11)
 
 Every container of the project has `requests` and `limits`:
@@ -143,8 +167,9 @@ do-it-yourself version of this and is not needed in GKE.)
    ```
 
    Useful variations: `textPayload:"rejected todo"` for the todos refused by the 140-character limit,
-   or change `container_name` to `todo-app`. The backend also logs every `GET /todos` that the
-   readiness probe makes every 5 seconds; a `NOT textPayload:"GET /todos"` line filters that noise out.
+   or change `container_name` to `todo-app`. (Before exercise 4.2 the readiness probe of the backend called
+   `GET /todos` every 5 seconds and filled the log; the probes now use their own endpoints and are not
+   logged.)
 3. **From the terminal**: `gcloud logging read '<the same query>' --limit=5 --order=desc --freshness=1h`
    (or `kubectl logs`, which only shows what the pod still has).
 
@@ -374,3 +399,4 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 - 3.10 (database backup, see ../todo_backup)
 - 3.11 (resource requests and limits, LimitRange and ResourceQuota)
 - 3.12 (logs and monitoring in GKE)
+- 4.2 (readiness and liveness probes)

@@ -28,6 +28,12 @@ const imageTtlMs = requiredInt('IMAGE_TTL_MS');
 const backendUrl = required('TODO_BACKEND_URL');
 const requestTimeoutMs = requiredInt('REQUEST_TIMEOUT_MS');
 const shutdownEnabled = process.env.ENABLE_SHUTDOWN === 'true';
+// A button of the page that "breaks" the app, to see Kubernetes restart it (exercise 4.2)
+const breakEnabled = process.env.ENABLE_BREAK_BUTTON === 'true';
+
+// What the health check answers. The button sets it to false; the container is restarted by
+// Kubernetes (liveness probe) and it starts again as true.
+let isHealthy = true;
 
 const MAX_TODO_LENGTH = requiredInt('MAX_TODO_LENGTH');
 const MAX_BODY_BYTES = requiredInt('MAX_BODY_BYTES');
@@ -123,6 +129,15 @@ const renderPage = (todos, message) => `<!DOCTYPE html>
       <button type="submit">Create todo</button>
       <small>Max ${MAX_TODO_LENGTH} characters</small>
     </form>
+${
+  breakEnabled
+    ? `    <form action="/break" method="post">
+      <button type="submit">Break the app</button>
+      <small>The health check starts to fail and Kubernetes restarts the container</small>
+    </form>
+`
+    : ''
+}
 ${message ? `    <p><strong>${escapeHtml(message)}</strong></p>\n` : ''}
     <h2>Todos</h2>
     <ul>
@@ -159,6 +174,54 @@ const readBody = (req) =>
   });
 
 const server = http.createServer(async (req, res) => {
+  // Liveness probe (exercise 4.2): 200 while the app is healthy, 500 after the button was
+  // pressed. When it fails Kubernetes restarts the container.
+  if (req.method === 'GET' && req.url === '/healthz') {
+    if (!isHealthy) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'unhealthy' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok' }));
+    return;
+  }
+
+  // Readiness probe (exercise 4.2): ready when the app is healthy AND the backend, which owns
+  // the database, is connected to it. If it fails the pod gets no traffic; it is not restarted.
+  if (req.method === 'GET' && req.url === '/readyz') {
+    if (!isHealthy) {
+      sendText(res, 500, 'unhealthy\n');
+      return;
+    }
+    try {
+      const response = await fetch(`${backendUrl}/healthz`, {
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      });
+      if (!response.ok) {
+        throw new Error(`todo-backend answered ${response.status}`);
+      }
+      sendText(res, 200, 'ok\n');
+    } catch (err) {
+      sendText(res, 503, `not ready: ${err.message}\n`);
+    }
+    return;
+  }
+
+  if (breakEnabled && req.method === 'POST' && req.url === '/break') {
+    isHealthy = false;
+    console.log('The app was broken with the button: the health check now fails');
+    res.writeHead(303, { Location: '/' });
+    res.end();
+    return;
+  }
+
+  // While it is broken the normal operation of the app stops
+  if (!isHealthy) {
+    sendText(res, 503, 'The app is broken. Kubernetes will restart it in a few seconds.\n');
+    return;
+  }
+
   if (req.method === 'GET' && req.url === '/') {
     try {
       sendHtml(res, 200, renderPage(await fetchTodos()));

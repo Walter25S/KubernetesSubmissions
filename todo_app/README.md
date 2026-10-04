@@ -22,6 +22,7 @@ message.
 | `MAX_TODO_LENGTH` | Maximum length of a todo | `140` |
 | `MAX_BODY_BYTES` | Maximum size of a submitted form | `10240` |
 | `ENABLE_SHUTDOWN` | Optional, `true` enables `POST /shutdown` (testing only) | `true` |
+| `ENABLE_BREAK_BUTTON` | Optional, `true` shows the "Break the app" button and enables `POST /break` (exercise 4.2) | `true` |
 
 To change a value, edit the ConfigMap, apply it and restart the pods
 (`kubectl rollout restart deployment/todo-app-dep -n project`); the image does
@@ -34,7 +35,39 @@ not need to be rebuilt.
 | `GET /` | HTML page with the picture, the todo form (max 140 characters) and the list of todos, rendered on the server with the todos it gets from `todo_backend`. |
 | `POST /todos` | Receives the form (`todo=...`), validates it and forwards it to `todo_backend`, then redirects (`303`) to `/`. |
 | `GET /image` | The cached random picture (JPEG). |
+| `GET /healthz` | Liveness probe (exercise 4.2): `200` while the app is healthy, `500` after the "Break the app" button was pressed. |
+| `GET /readyz` | Readiness probe (exercise 4.2): `200` when the app is healthy **and the backend is connected to the database**; `503` otherwise. |
+| `POST /break` | Only with `ENABLE_BREAK_BUTTON=true`: the "Break the app" button. From then on `/healthz` answers `500` and every other page answers `503`. |
 | `POST /shutdown` | Stops the process (only when `ENABLE_SHUTDOWN=true`); used to test that the picture survives a container crash. |
+
+## Probes and the "Break the app" button (exercise 4.2)
+
+The Deployment has two probes:
+
+- **`readinessProbe` -> `/readyz`**: the pod receives traffic only when the app is healthy and the
+  backend, which owns the database, answers its own health check. If the database is down the pod is
+  `0/1`, but it is **not restarted** (a restart would not help).
+- **`livenessProbe` -> `/healthz`**: if it fails 3 times in a row (checked every 5 s) Kubernetes
+  **restarts the container**.
+
+To see it work, the page has a **"Break the app"** button. Pressing it sets a flag in memory: `/healthz`
+starts to answer `500` and the app stops working (every page answers `503` "The app is broken").
+Kubernetes notices the failed liveness probe, restarts the container and the app starts again healthy,
+because the flag lives only in memory:
+
+```bash
+kubectl get po -n project -w         # after pressing the button: READY goes to 0/1 and then RESTARTS goes to 1
+kubectl describe pod -n project -l app=todo-app | grep -i liveness
+# Warning  Unhealthy  Liveness probe failed: HTTP probe failed with statuscode: 500
+# Normal   Killing    Container todo-app failed liveness probe, will be restarted
+```
+
+In a test it took about 45 seconds from pressing the button to the new container being healthy (the
+minimum is 15 s: 3 failed checks, 5 s apart). The container is restarted, not the pod: the pod keeps
+its name and its `RESTARTS` counter goes up.
+
+The button lets anyone who can open the page break the app, which is fine for the course; set
+`ENABLE_BREAK_BUTTON` to `"false"` in the ConfigMap to remove the button and the endpoint.
 
 ## Todos (exercise 2.2)
 
@@ -111,3 +144,4 @@ this folder has its own `kustomization.yaml`.
 - 2.4 (moved to the `project` namespace)
 - 2.6 (configuration in a ConfigMap, nothing hard coded)
 - 3.5 (deployed with Kustomize to GKE, see ../project)
+- 4.2 (readiness and liveness probes, "Break the app" button)

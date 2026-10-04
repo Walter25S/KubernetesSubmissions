@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: todo-backend
-          image: wallas25/todo-backend:2.10
+          image: wallas25/todo-backend:4.2
           envFrom:
             - configMapRef:
                 name: todo-backend-config
@@ -25,12 +25,25 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_PASSWORD
+          # Ready only when connected to the database (exercise 4.2). If the check fails the pod
+          # is taken out of the Service; it is not restarted, because that would not fix the database.
           readinessProbe:
             httpGet:
-              path: /todos
+              path: /healthz
               port: 3000
-            initialDelaySeconds: 2
+            initialDelaySeconds: 5
             periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 2
+          # Restarts the container only if the process itself stops answering.
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           # measured with `kubectl top pods`: 1-4m CPU and 12Mi of memory
           resources:
             requests:

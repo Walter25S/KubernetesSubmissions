@@ -7,6 +7,8 @@ pod.
 | Method and path | Description |
 | --------------- | ----------- |
 | `GET /todos` | Returns the list of todos as JSON: `[{"id": 1, "todo": "Buy milk"}]`. |
+| `GET /healthz` | Readiness probe (exercise 4.2): `200` when the backend is connected to the database, `503` when it is not. |
+| `GET /livez` | Liveness probe (exercise 4.2): `200` as long as the process answers. It does not look at the database. |
 | `POST /todos` | Creates a todo from the JSON body `{"todo": "Buy milk"}` and returns it with status `201`. A todo must have 1-`MAX_TODO_LENGTH` characters, otherwise the response is `400`. |
 
 If the database is not reachable the endpoints answer `503`. On startup the app
@@ -16,6 +18,17 @@ connections, so the start order of the pods does not matter.
 It is only reachable inside the cluster, through the Service `todo-backend-svc`
 (`http://todo-backend-svc:2345` from the `project` namespace, or
 `todo-backend-svc.project` from another one); `todo_app` talks to it.
+
+## Probes (exercise 4.2)
+
+- **`readinessProbe` -> `/healthz`**: ready only when connected to the database (`SELECT 1`). Without the
+  database the pod is `0/1`, it leaves the Service and `todo_app` reports it as not ready too.
+- **`livenessProbe` -> `/livez`**: restarts the container only if the process itself stops answering.
+  It does not check the database on purpose: restarting the backend would not bring the database back and
+  would only cause restart loops.
+
+The server starts at once and does not wait for the database. The probes are called every few seconds
+and are **not written to the log**, to keep it readable.
 
 ## Request logging (exercise 2.10)
 
@@ -64,6 +77,7 @@ message.
 | `MAX_BODY_BYTES` | Maximum size of a request body | ConfigMap |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` | Where and how to connect to Postgres | ConfigMap |
 | `DB_RETRY_DELAY_MS` | Wait between connection attempts at startup | ConfigMap |
+| `DB_CONNECT_TIMEOUT_MS` | How long to wait for a connection before giving up, so that a health check never hangs | ConfigMap |
 | `DB_PASSWORD` | Database password | Secret `postgres-secret`, key `POSTGRES_PASSWORD` |
 
 The Postgres container reads `POSTGRES_DB`/`POSTGRES_USER` from the same ConfigMap
@@ -92,7 +106,7 @@ to start from scratch.
 
 ```bash
 npm install
-PORT=3001 MAX_TODO_LENGTH=140 MAX_BODY_BYTES=10240 DB_HOST=localhost DB_PORT=5432 DB_NAME=todos DB_USER=todos DB_PASSWORD=... DB_RETRY_DELAY_MS=2000 node index.js
+PORT=3001 MAX_TODO_LENGTH=140 MAX_BODY_BYTES=10240 DB_HOST=localhost DB_PORT=5432 DB_NAME=todos DB_USER=todos DB_PASSWORD=... DB_RETRY_DELAY_MS=2000 DB_CONNECT_TIMEOUT_MS=3000 node index.js
 curl -X POST -H 'Content-Type: application/json' -d '{"todo":"Buy milk"}' localhost:3001/todos
 curl localhost:3001/todos
 ```
@@ -100,8 +114,8 @@ curl localhost:3001/todos
 ## Build and push the image
 
 ```bash
-docker build -t wallas25/todo-backend:2.10 .
-docker push wallas25/todo-backend:2.10
+docker build -t wallas25/todo-backend:4.2 .
+docker push wallas25/todo-backend:4.2
 ```
 
 ## Deploy to the cluster
@@ -122,3 +136,4 @@ kubectl get statefulset,pods,pvc -n project
 - 2.6 (configuration in a ConfigMap, nothing hard coded)
 - 2.8 (todos stored in Postgres, run as a StatefulSet)
 - 2.10 (request logging and the 140-character limit in the backend)
+- 4.2 (readiness and liveness probes)

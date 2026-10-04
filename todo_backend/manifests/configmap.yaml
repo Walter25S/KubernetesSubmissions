@@ -13,3 +13,4 @@ data:
   DB_NAME: todos
   DB_USER: todos
   DB_RETRY_DELAY_MS: "2000"
+  DB_CONNECT_TIMEOUT_MS: "3000"

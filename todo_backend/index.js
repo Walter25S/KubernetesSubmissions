@@ -30,7 +30,12 @@ const pool = new Pool({
   database: required('DB_NAME'),
   user: required('DB_USER'),
   password: required('DB_PASSWORD'),
+  // do not wait forever for a connection: the readiness probe has to get an answer
+  connectionTimeoutMillis: requiredInt('DB_CONNECT_TIMEOUT_MS'),
 });
+
+// true once the table exists, that is, once the database has answered at least once
+let databaseReady = false;
 
 // Without a handler, an error on an idle connection (for example when the
 // database restarts) would crash the process. The pool replaces the connection.
@@ -47,6 +52,7 @@ const initDatabase = async () => {
       await pool.query(
         'CREATE TABLE IF NOT EXISTS todos (id SERIAL PRIMARY KEY, todo TEXT NOT NULL)',
       );
+      databaseReady = true;
       console.log('Database ready');
       return;
     } catch (err) {
@@ -81,10 +87,38 @@ const readBody = (req) =>
     req.on('error', reject);
   });
 
+// The probes call these every few seconds: they are not logged, to keep the log readable.
+const PROBES = ['/healthz', '/livez'];
+
 const server = http.createServer(async (req, res) => {
   const startedAt = Date.now();
   let details = '';
-  res.on('finish', () => logRequest(req, res, startedAt, details));
+  if (!PROBES.includes(req.url)) {
+    res.on('finish', () => logRequest(req, res, startedAt, details));
+  }
+
+  // Liveness probe (exercise 4.2): the process answers. It does not look at the database: if the
+  // database is down a restart of the backend would not fix it.
+  if (req.method === 'GET' && req.url === '/livez') {
+    sendJson(res, 200, { status: 'ok' });
+    return;
+  }
+
+  // Readiness probe (exercise 4.2): ready only when it is connected to the database. If it
+  // fails the pod is taken out of the Service (todo-app gets errors from the other pods or none)
+  // but it is not restarted.
+  if (req.method === 'GET' && req.url === '/healthz') {
+    try {
+      if (!databaseReady) {
+        throw new Error('database not ready');
+      }
+      await pool.query('SELECT 1');
+      sendJson(res, 200, { status: 'ok' });
+    } catch (err) {
+      sendJson(res, 503, { status: 'unavailable', reason: err.message });
+    }
+    return;
+  }
 
   if (req.url !== '/todos') {
     sendJson(res, 404, { error: 'Not found' });
@@ -134,8 +168,9 @@ const server = http.createServer(async (req, res) => {
   sendJson(res, 405, { error: 'Method not allowed' });
 });
 
-initDatabase().then(() => {
-  server.listen(port, () => {
-    console.log(`Server started in port ${port}`);
-  });
+// The server starts at once, without waiting for the database: while the database is not
+// there /healthz answers 503 (not ready) and /todos answers 503 too.
+server.listen(port, () => {
+  console.log(`Server started in port ${port}`);
 });
+initDatabase();

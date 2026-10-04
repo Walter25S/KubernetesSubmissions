@@ -16,3 +16,6 @@ data:
   MAX_BODY_BYTES: "10240"
   # only for testing: lets POST /shutdown stop the container
   ENABLE_SHUTDOWN: "true"
+  # shows a button in the page that breaks the app, to see Kubernetes restart it (exercise 4.2);
+  # set it to "false" to remove the button and the endpoint it calls
+  ENABLE_BREAK_BUTTON: "true"

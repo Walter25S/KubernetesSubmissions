@@ -27,8 +27,8 @@ patches:
 # version (kustomize edit set image), instead of editing the Deployments.
 images:
   - name: wallas25/todo-app
-    newTag: "2.6"
+    newTag: "4.2"
   - name: wallas25/todo-backend
-    newTag: "2.10"
+    newTag: "4.2"
   - name: wallas25/todo-cronjob
     newTag: "2.9"

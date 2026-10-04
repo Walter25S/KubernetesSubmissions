@@ -71,6 +71,7 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | Exercise | App directory |
 | -------- | ------------- |
 | [4.1](https://github.com/Walter25S/KubernetesSubmissions/tree/4.1/ping_pong) | `ping_pong` / `log_output` |
+| [4.2](https://github.com/Walter25S/KubernetesSubmissions/tree/4.2/todo_app) | `todo_app` / `todo_backend` |
 
 ## Chapter 6
 
