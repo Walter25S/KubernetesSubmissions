@@ -61,6 +61,7 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | [3.6](https://github.com/Walter25S/KubernetesSubmissions/tree/3.6/project) | `project` / `.github/workflows` |
 | [3.7](https://github.com/Walter25S/KubernetesSubmissions/tree/3.7/project) | `project` / `.github/workflows` |
 | [3.8](https://github.com/Walter25S/KubernetesSubmissions/tree/3.8/project) | `.github/workflows` |
+| [3.9](https://github.com/Walter25S/KubernetesSubmissions/tree/3.9/project) | `project` (README) |
 
 ## Chapters 5-6
 

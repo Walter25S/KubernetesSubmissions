@@ -207,6 +207,50 @@ Artifact Registry is not free: delete old images (`gcloud artifacts docker image
 or the whole repository (`gcloud artifacts repositories delete my-repository --location=us-central1`)
 when it is not needed.
 
+## DBaaS vs DIY: Cloud SQL or our own Postgres? (exercise 3.9)
+
+The todos need a database. There are two ways to run Postgres on Google Cloud:
+
+- **DBaaS (Database as a Service)**: *Cloud SQL for PostgreSQL*. Google runs the database and we
+  only use it.
+- **DIY (do it yourself)**: what this project does: a Postgres container in a StatefulSet in the
+  cluster, with a PersistentVolumeClaim; GKE creates the disk (see `project/gke/`).
+
+### Comparison
+
+| | DBaaS (Cloud SQL) | DIY (StatefulSet + PVC) |
+| --- | --- | --- |
+| **Work to start** | Create the instance (one command or a few clicks), create the database and the user, and decide how the pods connect: private IP (VPC peering / Private Service Connect) or the *Cloud SQL Auth Proxy* as a sidecar, which also needs an IAM service account. Little YAML, but cloud networking and IAM to learn. | Already done here: a StatefulSet, a headless Service and a Secret (~80 lines of YAML), no cloud-specific setup. Needs care with the details: `fsGroup`/permissions of the disk, storage class, an init/readiness strategy and a good password handling. |
+| **Cost to start** | A running instance from the first minute. Published prices (us-central1, order of magnitude): `db-f1-micro` about $7.7/month, `db-g1-small` about $25.6/month, SSD storage about $0.17/GB-month, and **high availability doubles** instance and storage. Realistic minimum: ~$9/month, ~$18+/month with HA. Backup storage is billed apart. | Almost free: a 1Gi disk costs cents per month and the CPU/memory (`100m` / `128Mi` requested) comes out of nodes that are already paid for. But it is *not* zero: if the database needs more memory, it is the nodes that grow. |
+| **Maintenance** | Google applies minor-version and OS patches in a maintenance window, monitors the instance, replaces failed hardware and can fail over automatically with HA. Major-version upgrades are a guided operation. The team does not need Postgres operations skills. | All on us: choosing and updating the image (`postgres:16-alpine`), minor and major upgrades (a major upgrade means dump/restore or `pg_upgrade`), tuning (`shared_buffers`, connections), disk resizing, monitoring and alerts. Without an operator there is **no automatic failover**: one replica, and if the node dies the pod waits to be rescheduled (minutes of downtime). |
+| **High availability** | A checkbox (regional instance, standby in another zone, automatic failover in about a minute). | Possible but hard: replication, failover, split-brain. In practice needs a Postgres operator (CloudNativePG, Zalando, Crunchy) which is one more thing to maintain. |
+| **Backups** | Automated daily backups with retention, **point-in-time recovery** (restore to any second in the window) and on-demand backups, included in the product. | Not included: we build it. Exercise 3.10 does a `pg_dump` every 24 h to Cloud Storage: a *logical* backup, ok for small data but with up to 24 h of data loss (RPO) and the dump gets slower as the data grows. Point-in-time recovery needs WAL archiving (pgBackRest, WAL-G, an operator). Disk snapshots (`VolumeSnapshot`) are an alternative, crash-consistent only. |
+| **Restoring** | Console or `gcloud sql backups restore`: restore in place or to a new instance. Rehearsed by the provider. | Manual: download the dump and `psql < dump.sql` into a fresh database. Simple, but it is on us to write it down and **test it** from time to time; an untested backup is not a backup. |
+| **Scaling** | Change the machine type (a short restart) and add read replicas with a command; storage grows automatically if enabled. | Vertical scaling means editing requests/limits and the PVC (online expansion depends on the storage class); reads replicas need replication set up by hand. |
+| **Security** | Encryption at rest and in transit by default, IAM-based access, automatic OS patching, audit logs; the database is not in the same blast radius as the application. | We secure it: Secret handling, NetworkPolicies, encryption of the disk is on by default in GKE, but patching the image is on us. The database runs on the same nodes as the application. |
+| **Portability** | Postgres-compatible, but the surroundings (Auth Proxy, IAM, backups, flags) are Google-specific: leaving costs a migration. | Runs the same on k3d, GKE or any cluster; what we develop locally is what runs in production. |
+| **Performance / control** | Some superuser features and extensions are restricted; the instance is a separate machine reached over the network. | Full control (any extension, any setting) and the lowest latency (same cluster), but the database competes with the apps for the resources of the node. |
+
+### Conclusion
+
+- For a **course project, a prototype or a small internal tool** with data that can be rebuilt, DIY is
+  the sensible choice: it is cheap, simple, portable and teaches how storage works in Kubernetes.
+  That is why this project uses it.
+- For a **production service where the data matters** (the todos of real users), I would choose
+  Cloud SQL: what we would pay for is mostly *not having to do* backups with point-in-time recovery,
+  patching and failover, and that costs less than the engineer-hours needed to do it well and to be
+  woken up when it breaks. If we stay with DIY in production, the minimum is: tested restores,
+  more frequent backups than daily, a second replica or an operator, and alerts.
+- The deciding factors are the value of the data, how much data loss and downtime are acceptable
+  (RPO/RTO), and whether the team has Postgres operations skills.
+
+Prices change: check the [Cloud SQL pricing](https://cloud.google.com/sql/docs/postgres/pricing)
+page and the [pricing calculator](https://cloud.google.com/products/calculator) before deciding.
+The figures above are the published list prices for us-central1 when this was written
+(Cloud SQL `db-f1-micro` $0.0105/hour, `db-g1-small` $0.035/hour, SSD storage $0.000232877 per
+GiB-hour; HA doubles them), and do not include network, backup storage or discounts. The
+shared-core machine types are not covered by the Cloud SQL SLA.
+
 ## Remove it
 
 ```bash
@@ -223,3 +267,4 @@ The Secret and the disks of the StatefulSet are not part of the kustomization:
 - 3.6 (deployment pipeline with GitHub Actions)
 - 3.7 (one environment per branch)
 - 3.8 (deleting a branch deletes its environment)
+- 3.9 (DBaaS vs DIY comparison)
