@@ -1,21 +1,32 @@
 # todo_app
 
-## Description
+Web server for the course project. On startup it prints
+`Server started in port NNNN`. The port is chosen with the `PORT`
+environment variable (default `3000`).
 
-TODO: what this application does.
-
-## Requirements
-
-- Docker
-- A local Kubernetes cluster (k3d)
-- kubectl
-
-## Build and run
+## Run locally
 
 ```bash
-# TODO: docker build / kubectl apply commands
+PORT=3000 node index.js
 ```
 
-## Exercises using this app
+## Build and push the image
 
-TODO: list exercise numbers.
+```bash
+docker build -t wallas25/todo-app:1.2 .
+docker push wallas25/todo-app:1.2
+```
+
+## Deploy to the cluster
+
+```bash
+kubectl apply -f manifests/deployment.yaml
+kubectl logs -f deployment/todo-app-dep
+```
+
+The port is not reachable from outside the cluster yet; networking is
+configured in later exercises.
+
+## Exercises
+
+- 1.2
