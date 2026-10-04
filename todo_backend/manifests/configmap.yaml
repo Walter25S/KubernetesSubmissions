@@ -7,3 +7,9 @@ data:
   PORT: "3000"
   MAX_TODO_LENGTH: "140"
   MAX_BODY_BYTES: "10240"
+  # the headless service of the database (see statefulset.yaml)
+  DB_HOST: postgres-svc
+  DB_PORT: "5432"
+  DB_NAME: todos
+  DB_USER: todos
+  DB_RETRY_DELAY_MS: "2000"

@@ -39,7 +39,8 @@ not need to be rebuilt.
 ## Todos (exercise 2.2)
 
 The todos are not stored here: they are kept by the
-[todo_backend](../todo_backend/README.md) service, which this app reaches at
+[todo_backend](../todo_backend/README.md) service (in a Postgres database since
+exercise 2.8), which this app reaches at
 `TODO_BACKEND_URL` (default `http://todo-backend-svc:2345`). The backend is not
 exposed outside the cluster; the browser only talks to this app. If the backend
 is down the page still loads and shows a message.
@@ -80,6 +81,7 @@ k3d cluster create --port 8082:30080@agent:0 -p 8081:80@loadbalancer --agents 2
 docker exec k3d-k3s-default-agent-0 sh -c "mkdir -p /tmp/kube && chmod 777 /tmp/kube"
 kubectl apply -f ../namespaces/project.yaml
 kubectl apply -f ../volumes/
+# the backend needs its database Secret first, see ../todo_backend/README.md
 kubectl apply -f ../todo_backend/manifests/
 kubectl apply -f manifests/        # the ConfigMap, Deployment, Service and Ingress
 kubectl get all -n project

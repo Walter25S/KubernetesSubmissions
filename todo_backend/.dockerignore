@@ -1,3 +1,4 @@
 node_modules
 manifests
 README.md
+secret.example.yaml

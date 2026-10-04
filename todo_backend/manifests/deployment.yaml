@@ -15,10 +15,22 @@ spec:
     spec:
       containers:
         - name: todo-backend
-          image: wallas25/todo-backend:2.6
+          image: wallas25/todo-backend:2.8
           envFrom:
             - configMapRef:
                 name: todo-backend-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /todos
+              port: 3000
+            initialDelaySeconds: 2
+            periodSeconds: 5
           resources:
             requests:
               cpu: 50m

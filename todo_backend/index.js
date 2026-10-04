@@ -1,4 +1,5 @@
 const http = require('http');
+const { Pool } = require('pg');
 
 const required = (name) => {
   const value = process.env[name];
@@ -21,9 +22,39 @@ const requiredInt = (name) => {
 const port = requiredInt('PORT');
 const MAX_TODO_LENGTH = requiredInt('MAX_TODO_LENGTH');
 const MAX_BODY_BYTES = requiredInt('MAX_BODY_BYTES');
+const retryDelayMs = requiredInt('DB_RETRY_DELAY_MS');
 
-const todos = [];
-let nextId = 1;
+const pool = new Pool({
+  host: required('DB_HOST'),
+  port: requiredInt('DB_PORT'),
+  database: required('DB_NAME'),
+  user: required('DB_USER'),
+  password: required('DB_PASSWORD'),
+});
+
+// Without a handler, an error on an idle connection (for example when the
+// database restarts) would crash the process. The pool replaces the connection.
+pool.on('error', (err) => {
+  console.error(`Idle database connection lost: ${err.message}`);
+});
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// The database may still be starting when this pod starts, so keep trying.
+const initDatabase = async () => {
+  for (;;) {
+    try {
+      await pool.query(
+        'CREATE TABLE IF NOT EXISTS todos (id SERIAL PRIMARY KEY, todo TEXT NOT NULL)',
+      );
+      console.log('Database ready');
+      return;
+    } catch (err) {
+      console.error(`Database not available yet: ${err.message}`);
+      await sleep(retryDelayMs);
+    }
+  }
+};
 
 const sendJson = (res, status, body) => {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -51,7 +82,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET') {
-    sendJson(res, 200, todos);
+    try {
+      const result = await pool.query('SELECT id, todo FROM todos ORDER BY id');
+      sendJson(res, 200, result.rows);
+    } catch (err) {
+      console.error(`Database error: ${err.message}`);
+      sendJson(res, 503, { error: 'Database not available' });
+    }
     return;
   }
 
@@ -68,17 +105,25 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 400, { error: `todo must be 1-${MAX_TODO_LENGTH} characters` });
       return;
     }
-    const todo = { id: nextId, todo: text };
-    nextId += 1;
-    todos.push(todo);
-    console.log(`Created todo ${todo.id}`);
-    sendJson(res, 201, todo);
+    try {
+      const result = await pool.query(
+        'INSERT INTO todos (todo) VALUES ($1) RETURNING id, todo',
+        [text],
+      );
+      console.log(`Created todo ${result.rows[0].id}`);
+      sendJson(res, 201, result.rows[0]);
+    } catch (err) {
+      console.error(`Database error: ${err.message}`);
+      sendJson(res, 503, { error: 'Database not available' });
+    }
     return;
   }
 
   sendJson(res, 405, { error: 'Method not allowed' });
 });
 
-server.listen(port, () => {
-  console.log(`Server started in port ${port}`);
+initDatabase().then(() => {
+  server.listen(port, () => {
+    console.log(`Server started in port ${port}`);
+  });
 });
