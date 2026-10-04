@@ -1,0 +1,16 @@
+# Exposes ping-pong outside the cluster with a Google Cloud load balancer
+# (exercise 3.1). It replaces ../manifests/service.yaml (ClusterIP) on GKE: do not
+# apply both, they have the same name.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ping-pong-svc
+  namespace: exercises
+spec:
+  type: LoadBalancer
+  selector:
+    app: ping-pong
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 3000

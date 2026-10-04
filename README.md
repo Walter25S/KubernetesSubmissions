@@ -49,6 +49,12 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | [2.9](https://github.com/Walter25S/KubernetesSubmissions/tree/2.9/todo_cronjob) | `todo_cronjob` |
 | [2.10](https://github.com/Walter25S/KubernetesSubmissions/tree/2.10/todo_backend) | `todo_backend` / `monitoring` |
 
-## Chapters 4-6
+## Chapter 4
+
+| Exercise | App directory |
+| -------- | ------------- |
+| [3.1](https://github.com/Walter25S/KubernetesSubmissions/tree/3.1/ping_pong) | `ping_pong` |
+
+## Chapters 5-6
 
 Added as the course progresses.
