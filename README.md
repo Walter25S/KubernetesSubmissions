@@ -34,6 +34,12 @@ Course: https://courses.mooc.fi/org/uh-cs/courses/devops-with-kubernetes-2026
 
 _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 
-## Chapters 3-6
+## Chapter 3
+
+| Exercise | App directory |
+| -------- | ------------- |
+| [2.1](https://github.com/Walter25S/KubernetesSubmissions/tree/2.1/log_output) | `log_output` / `ping_pong` |
+
+## Chapters 4-6
 
 Added as the course progresses.

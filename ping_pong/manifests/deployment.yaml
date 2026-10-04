@@ -12,16 +12,9 @@ spec:
       labels:
         app: ping-pong
     spec:
-      volumes:
-        - name: shared-data
-          persistentVolumeClaim:
-            claimName: shared-claim
       containers:
         - name: ping-pong
-          image: wallas25/ping-pong:1.11
+          image: wallas25/ping-pong:2.1
           env:
             - name: PORT
               value: "3000"
-          volumeMounts:
-            - name: shared-data
-              mountPath: /usr/src/app/files

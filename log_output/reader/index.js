@@ -3,37 +3,44 @@ const http = require('http');
 
 const port = process.env.PORT || 3000;
 const logFile = process.env.FILE_PATH || '/usr/src/app/files/log.txt';
-const pingPongFile = process.env.PINGPONG_FILE || '/usr/src/app/shared/pingpong.txt';
+const pingPongUrl = process.env.PINGPONG_URL || 'http://ping-pong-svc:2346/pings';
 
 const lastLine = () => {
   const lines = fs.readFileSync(logFile, 'utf8').trim().split('\n');
   return lines[lines.length - 1];
 };
 
-const pingPongs = () => {
+const pingPongs = async () => {
   try {
-    return fs.readFileSync(pingPongFile, 'utf8').trim() || '0';
+    const response = await fetch(pingPongUrl, { signal: AbortSignal.timeout(3000) });
+    if (!response.ok) {
+      throw new Error(`status ${response.status}`);
+    }
+    return (await response.text()).trim();
   } catch (err) {
-    return '0';
+    console.error(`Could not get the pongs: ${err.message}`);
+    return 'unavailable';
   }
 };
 
-const server = http.createServer((req, res) => {
+const sendText = (res, status, text) => {
+  res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end(text);
+};
+
+const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/') {
     let line;
     try {
       line = lastLine();
     } catch (err) {
-      res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Log file not available yet\n');
+      sendText(res, 503, 'Log file not available yet\n');
       return;
     }
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end(`${line}.\nPing / Pongs: ${pingPongs()}\n`);
+    sendText(res, 200, `${line}.\nPing / Pongs: ${await pingPongs()}\n`);
     return;
   }
-  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('Not found\n');
+  sendText(res, 404, 'Not found\n');
 });
 
 server.listen(port, () => {

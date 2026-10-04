@@ -6,22 +6,22 @@ The app is split into two containers that run in the same pod and share an
 | Container | Directory | What it does |
 | --------- | --------- | ------------ |
 | `writer`  | `writer/` | Generates a random string (UUID) on startup and appends a line `<ISO timestamp>: <string>` to `files/log.txt` every 5 seconds (it also prints it to stdout). |
-| `reader`  | `reader/` | HTTP server (port from `PORT`, default `3000`). `GET /` returns the last line of `files/log.txt` and the number of pings read from the file `pingpong.txt` that `ping_pong` keeps in the shared PersistentVolume (mounted at `/usr/src/app/shared`, path from `PINGPONG_FILE`). |
+| `reader`  | `reader/` | HTTP server (port from `PORT`, default `3000`). `GET /` returns the last line of `files/log.txt` and the number of pongs, which it asks the `ping_pong` app for with `GET http://ping-pong-svc:2346/pings` (`PINGPONG_URL`). |
 
 Example response:
 
 ```
-2026-10-04T17:52:31.931Z: 086c282a-d06f-48e3-b566-b8eb78bf84da.
+2026-10-04T18:35:54.288Z: f3c8419f-679e-4222-9199-e82509352b30.
 Ping / Pongs: 3
 ```
 
-Both containers use the file path from `FILE_PATH` (default `/usr/src/app/files/log.txt`).
+If `ping_pong` cannot be reached, the second line says `Ping / Pongs: unavailable`.
 
 ## Run locally
 
 ```bash
 FILE_PATH=/tmp/log.txt node writer/index.js &
-FILE_PATH=/tmp/log.txt PINGPONG_FILE=/tmp/pingpong.txt PORT=3000 node reader/index.js &
+FILE_PATH=/tmp/log.txt PINGPONG_URL=http://localhost:3001/pings PORT=3000 node reader/index.js &
 curl localhost:3000/
 ```
 
@@ -29,18 +29,17 @@ curl localhost:3000/
 
 ```bash
 docker build -t wallas25/log-output-writer:1.10 writer
-docker build -t wallas25/log-output-reader:1.11 reader
+docker build -t wallas25/log-output-reader:2.1 reader
 docker push wallas25/log-output-writer:1.10
-docker push wallas25/log-output-reader:1.11
+docker push wallas25/log-output-reader:2.1
 ```
 
 ## Deploy to the cluster
 
-The PersistentVolume and its claim live in [../volumes](../volumes/README.md)
-and must be applied first (plus the `ping_pong` app, which writes the counter):
+The `ping_pong` app has to be deployed too (the reader calls its Service):
 
 ```bash
-kubectl apply -f ../volumes/
+kubectl apply -f ../ping_pong/manifests/
 kubectl apply -f manifests/
 kubectl logs -f deployment/log-output-dep -c writer
 ```
@@ -52,10 +51,11 @@ With the cluster created as
 open http://localhost:8081.
 
 Note: `log.txt` lives on an `emptyDir`, so it is lost when the pod is
-recreated; the ping counter lives on the PersistentVolume and is kept.
+recreated.
 
 ## Exercises
 
 - 1.1, 1.3, 1.7 (single-container version, see the corresponding releases)
 - 1.10 (writer + reader in one pod)
-- 1.11 (shares the ping-pong counter through a PersistentVolume)
+- 1.11 (shared the ping-pong counter through a PersistentVolume, see its release)
+- 2.1 (gets the ping-pong counter over HTTP instead)

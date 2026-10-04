@@ -15,9 +15,6 @@ spec:
       volumes:
         - name: shared-logs
           emptyDir: {}
-        - name: shared-data
-          persistentVolumeClaim:
-            claimName: shared-claim
       containers:
         - name: writer
           image: wallas25/log-output-writer:1.10
@@ -25,9 +22,10 @@ spec:
             - name: shared-logs
               mountPath: /usr/src/app/files
         - name: reader
-          image: wallas25/log-output-reader:1.11
+          image: wallas25/log-output-reader:2.1
+          env:
+            - name: PINGPONG_URL
+              value: http://ping-pong-svc:2346/pings
           volumeMounts:
             - name: shared-logs
               mountPath: /usr/src/app/files
-            - name: shared-data
-              mountPath: /usr/src/app/shared
