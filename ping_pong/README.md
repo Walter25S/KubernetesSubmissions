@@ -29,11 +29,17 @@ docker push wallas25/ping-pong:2.1
 
 ## Deploy to the cluster
 
+The app runs in the `exercises` namespace (exercise 2.3), which has to exist
+first:
+
 ```bash
+kubectl apply -f ../namespaces/exercises.yaml
 kubectl apply -f manifests/
+kubectl get all -n exercises
 ```
 
-`manifests/service.yaml` is a `ClusterIP` Service (2346 -> 3000). The Ingress is
+`manifests/service.yaml` is a `ClusterIP` Service (2346 -> 3000). Both live in the
+`exercises` namespace; from another namespace it is `ping-pong-svc.exercises`. The Ingress is
 shared with `log_output` and lives in `../log_output/manifests/ingress.yaml`:
 `/` goes to `log_output` and `/pingpong` goes to this app. With the cluster
 created as
@@ -44,3 +50,4 @@ open http://localhost:8081/pingpong.
 
 - 1.9, 1.11 (see the corresponding releases)
 - 2.1 (HTTP endpoint `/pings` for `log_output`)
+- 2.3 (moved to the `exercises` namespace)

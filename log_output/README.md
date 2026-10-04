@@ -36,12 +36,14 @@ docker push wallas25/log-output-reader:2.1
 
 ## Deploy to the cluster
 
-The `ping_pong` app has to be deployed too (the reader calls its Service):
+The app runs in the `exercises` namespace (exercise 2.3). The `ping_pong` app has to
+be deployed too, in the same namespace (the reader calls its Service by name):
 
 ```bash
+kubectl apply -f ../namespaces/exercises.yaml
 kubectl apply -f ../ping_pong/manifests/
 kubectl apply -f manifests/
-kubectl logs -f deployment/log-output-dep -c writer
+kubectl logs -n exercises -f deployment/log-output-dep -c writer
 ```
 
 `manifests/service.yaml` (`ClusterIP`, 2345 -> 3000) and `manifests/ingress.yaml`
@@ -59,3 +61,4 @@ recreated.
 - 1.10 (writer + reader in one pod)
 - 1.11 (shared the ping-pong counter through a PersistentVolume, see its release)
 - 2.1 (gets the ping-pong counter over HTTP instead)
+- 2.3 (moved to the `exercises` namespace)
