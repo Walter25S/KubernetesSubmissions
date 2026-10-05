@@ -1,0 +1,53 @@
+# Only to test GitOps locally: a Git server inside the cluster that ArgoCD can pull from.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitserver
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-server
+  namespace: gitserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: git-server
+  template:
+    metadata:
+      labels:
+        app: git-server
+    spec:
+      containers:
+        - name: git-server
+          image: wallas25/git-server:test
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REPOS
+              value: "config"
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: git-server
+  namespace: gitserver
+spec:
+  selector:
+    app: git-server
+  ports:
+    - port: 8080
+      targetPort: 8080

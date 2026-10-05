@@ -76,6 +76,7 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | [4.4](https://github.com/Walter25S/KubernetesSubmissions/tree/4.4/ping_pong) | `ping_pong/rollout` |
 | [4.5](https://github.com/Walter25S/KubernetesSubmissions/tree/4.5/todo_app) | `todo_app` / `todo_backend` |
 | [4.6](https://github.com/Walter25S/KubernetesSubmissions/tree/4.6/broadcaster) | `broadcaster` / `todo_backend` |
+| [4.7](https://github.com/Walter25S/KubernetesSubmissions/tree/4.7/log_output) | `log_output` / `argocd` / `gitops` |
 
 ## Chapter 6
 

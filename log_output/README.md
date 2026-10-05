@@ -131,6 +131,13 @@ Exercise 3.2 used an Ingress (`manifests/ingress.yaml`, with `NodePort` Services
 `BackendConfig` for the health check); the Gateway replaces it in exercise 3.3. The Ingress
 file is still used by the local k3d cluster (Traefik).
 
+## GitOps (exercise 4.7)
+
+The application is deployed by **ArgoCD** from this folder: [kustomization.yaml](kustomization.yaml) lists the
+manifests and the tags of the images that run, and a CI workflow
+([../.github/workflows/log-output.yaml](../.github/workflows/log-output.yaml)) builds the images, commits the new
+tags there and lets ArgoCD apply them. See [../gitops/README.md](../gitops/README.md).
+
 ## Exercises
 
 - 1.1, 1.3, 1.7 (single-container version, see the corresponding releases)
@@ -143,3 +150,4 @@ file is still used by the local k3d cluster (Traefik).
 - 3.3 (the Ingress replaced by the Gateway API)
 - 3.4 (the route rewrites `/pingpong` to `/` for `ping_pong`)
 - 4.1 (readiness probe of the reader: ready when ping-pong answers)
+- 4.7 (deployed by ArgoCD, GitOps)

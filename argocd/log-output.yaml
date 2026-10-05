@@ -1,0 +1,21 @@
+# The ArgoCD application for "Log output" (exercise 4.7): it watches the folder log_output of the
+# repository and keeps the namespace "exercises" equal to it.
+#   kubectl apply -n argocd -f argocd/log-output.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: log-output
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Walter25S/KubernetesSubmissions
+    targetRevision: HEAD
+    path: log_output
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: exercises
+  syncPolicy:
+    automated:
+      prune: true # what is deleted from Git is deleted from the cluster
+      selfHeal: true # a change made by hand in the cluster is undone
