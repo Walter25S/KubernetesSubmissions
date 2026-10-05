@@ -1,21 +1,23 @@
 name: GitOps staging
 
-# Every commit to main that changes the code of the project is deployed to STAGING (exercise 4.9): the
-# workflow builds the four images, publishes them and writes their tags in the overlay of staging,
-# in the repository. ArgoCD (application project-staging, which follows main) applies that commit.
+# Every commit to main that changes the code of the project is deployed to STAGING (exercises 4.9 and 4.10).
+# The code and the configuration are in DIFFERENT repositories: this one has the code, and
+# Walter25S/KubernetesSubmissions-config has what runs in the cluster. The workflow builds the four images, publishes
+# them and writes their tags in the overlay of staging of the CONFIGURATION repository. ArgoCD follows the branch main
+# of that repository, so it deploys the commit.
 on:
   push:
     branches:
       - main
-    # only when the code of an image changes (not when this workflow commits the overlay)
     paths:
       - todo_app/**
       - todo_backend/**
       - todo_cronjob/**
       - broadcaster/**
 
+# this repository is only read; what is written is the other one, with its own token
 permissions:
-  contents: write # to commit the overlay
+  contents: read
 
 concurrency:
   group: gitops-staging
@@ -26,7 +28,7 @@ jobs:
     name: Build, push, release to staging
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout the code
         uses: actions/checkout@v6
 
       - name: Login to Docker Hub
@@ -43,19 +45,31 @@ jobs:
             docker push "wallas25/$IMAGE:$GITHUB_SHA"
           done
 
+      # GITHUB_TOKEN only reaches this repository: writing to the other one needs a token of its own
+      # (CONFIG_REPO_TOKEN, a token with write access to that repository only)
+      - name: Checkout the configuration repository
+        uses: actions/checkout@v6
+        with:
+          repository: Walter25S/KubernetesSubmissions-config
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: config
+
       - name: Set up Kustomize
         uses: imranismail/setup-kustomize@v3
 
       - name: Use the new images in staging
         run: |-
-          cd gitops/overlays/staging
+          cd config/overlays/staging
           for IMAGE in todo-app todo-backend todo-cronjob broadcaster; do
             kustomize edit set image "wallas25/$IMAGE=wallas25/$IMAGE:$GITHUB_SHA"
           done
 
-      - name: Commit the overlay
-        uses: EndBug/add-and-commit@v10
-        with:
-          add: gitops/overlays/staging/kustomization.yaml
-          message: "staging: release ${{ github.sha }}"
-          pull: "--rebase --autostash"
+      - name: Commit to the configuration repository
+        run: |-
+          cd config
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add overlays/staging/kustomization.yaml
+          git commit -m "staging: release $GITHUB_SHA of $GITHUB_REPOSITORY"
+          git pull --rebase origin main
+          git push origin HEAD:main

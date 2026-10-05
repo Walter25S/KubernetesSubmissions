@@ -11,9 +11,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Walter25S/KubernetesSubmissions
+    repoURL: https://github.com/Walter25S/KubernetesSubmissions-config
     targetRevision: production
-    path: gitops/overlays/production
+    path: overlays/production
   destination:
     server: https://kubernetes.default.svc
     namespace: production

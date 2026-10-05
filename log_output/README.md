@@ -131,12 +131,13 @@ Exercise 3.2 used an Ingress (`manifests/ingress.yaml`, with `NodePort` Services
 `BackendConfig` for the health check); the Gateway replaces it in exercise 3.3. The Ingress
 file is still used by the local k3d cluster (Traefik).
 
-## GitOps (exercise 4.7)
+## GitOps (exercises 4.7 and 4.10)
 
-The application is deployed by **ArgoCD** from this folder: [kustomization.yaml](kustomization.yaml) lists the
-manifests and the tags of the images that run, and a CI workflow
-([../.github/workflows/log-output.yaml](../.github/workflows/log-output.yaml)) builds the images, commits the new
-tags there and lets ArgoCD apply them. See [../gitops/README.md](../gitops/README.md).
+The application is deployed by **ArgoCD**, which follows the folder `log-output` of the configuration repository
+([KubernetesSubmissions-config](../config-repo/README.md); in exercise 4.7 it was `kustomization.yaml` in this folder). A CI workflow
+([../.github/workflows/log-output.yaml](../.github/workflows/log-output.yaml)) builds the images of `writer` and `reader` when their
+code changes, and commits the new tags to that repository for ArgoCD to apply. The manifests in [manifests/](manifests/) are the same
+ones, for running it by hand. See [../gitops/README.md](../gitops/README.md).
 
 ## Exercises
 
@@ -151,3 +152,4 @@ tags there and lets ArgoCD apply them. See [../gitops/README.md](../gitops/READM
 - 3.4 (the route rewrites `/pingpong` to `/` for `ping_pong`)
 - 4.1 (readiness probe of the reader: ready when ping-pong answers)
 - 4.7 (deployed by ArgoCD, GitOps)
+- 4.10 (its configuration lives in the configuration repository)

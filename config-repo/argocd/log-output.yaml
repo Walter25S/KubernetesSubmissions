@@ -9,9 +9,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/Walter25S/KubernetesSubmissions
-    targetRevision: HEAD
-    path: log_output
+    repoURL: https://github.com/Walter25S/KubernetesSubmissions-config
+    targetRevision: main
+    path: log-output
   destination:
     server: https://kubernetes.default.svc
     namespace: exercises

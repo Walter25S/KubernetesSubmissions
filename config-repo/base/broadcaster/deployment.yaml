@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broadcaster-dep
+  namespace: project
+spec:
+  # It can run with any number of replicas (tested with 6) without sending a message twice:
+  # the replicas share a NATS queue group, which gives each message to only one of them.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broadcaster
+  template:
+    metadata:
+      labels:
+        app: broadcaster
+    spec:
+      containers:
+        - name: broadcaster
+          image: wallas25/broadcaster:4.6
+          envFrom:
+            - configMapRef:
+                name: broadcaster-config
+          env:
+            # where to send the messages; it can contain a token, so it is a Secret that is
+            # created in the cluster (see ../secret.example.yaml) and is not in the repository
+            - name: WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: broadcaster-webhook
+                  key: WEBHOOK_URL
+                  # not needed (and not created) in the environments that only log the messages
+                  optional: true
+          # Ready only when it is connected to NATS and subscribed
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi

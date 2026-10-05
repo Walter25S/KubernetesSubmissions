@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-app-dep
+  namespace: project
+spec:
+  replicas: 1
+  # The picture cache is a ReadWriteOnce volume: it can be mounted by one node at a time,
+  # so the new pod cannot start while the old one still has it (RollingUpdate would fail
+  # with a Multi-Attach error on GKE). Recreate stops the old pod first.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: todo-app
+  template:
+    metadata:
+      labels:
+        app: todo-app
+    spec:
+      volumes:
+        - name: image-cache
+          persistentVolumeClaim:
+            claimName: shared-claim
+      containers:
+        - name: todo-app
+          image: wallas25/todo-app:4.5
+          envFrom:
+            - configMapRef:
+                name: todo-app-config
+          # Ready: the app is healthy and the backend is connected to the database.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 2
+          # Alive: /healthz answers 500 after the "Break the app" button was pressed, and then
+          # Kubernetes restarts the container (3 failed checks, about 15 seconds).
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: image-cache
+              mountPath: /usr/src/app/files
+          # measured with `kubectl top pods`: 2-10m CPU and 22-26Mi of memory
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

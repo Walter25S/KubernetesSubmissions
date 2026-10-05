@@ -1,0 +1,16 @@
+# The most one environment (namespace) can ask for, so that a branch environment cannot take
+# the whole cluster: the nodes are small (e2-small) and already fairly full. The values are
+# about 3 times what an environment uses at the moment, to leave room for the rolling update
+# of the backend and for the backup job.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: environment-quota
+  namespace: project
+spec:
+  hard:
+    requests.cpu: 250m
+    requests.memory: 512Mi
+    limits.cpu: "2"
+    limits.memory: 1536Mi
+    pods: "20"

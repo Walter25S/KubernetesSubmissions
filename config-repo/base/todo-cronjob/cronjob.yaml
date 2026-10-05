@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: todo-cronjob
+  namespace: project
+spec:
+  schedule: "0 * * * *" # every hour, at minute 0
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: todo-cronjob
+              image: wallas25/todo-cronjob:2.9
+              envFrom:
+                - configMapRef:
+                    name: todo-cronjob-config
+              resources:
+                requests:
+                  cpu: 5m
+                  memory: 24Mi
+                limits:
+                  cpu: 100m
+                  memory: 96Mi

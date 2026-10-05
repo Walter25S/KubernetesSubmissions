@@ -13,6 +13,14 @@ git push (code) -> CI workflow -> image in Docker Hub + commit with the new tag 
 What this gives: changes are version controlled and reviewable, the cluster can be rebuilt from the
 repository, and **a bad release is undone with `git revert`**.
 
+> **Two repositories (exercise 4.10).** In exercises 4.7 to 4.9 the code and the configuration were in this repository
+> (`log_output/kustomization.yaml`, `gitops/base`, `gitops/overlays`, `argocd/`). In 4.10 the configuration moved to its own
+> repository, [`KubernetesSubmissions-config`](https://github.com/Walter25S/KubernetesSubmissions-config), whose files are in
+> the folder [../config-repo](../config-repo/README.md) until it is published, and the files that were in this repository were
+> removed so that there is only one source of truth. The sections of 4.7, 4.8 and 4.9 below describe how it works and what was
+> tested; read the paths in them as being in the configuration repository, and see the section of 4.10 for the final layout.
+> The releases `4.7`, `4.8` and `4.9` keep the layout of their time.
+
 ## Where it runs
 
 ArgoCD runs in the **local k3d cluster**, not in GKE: the nodes of the GKE cluster have no free memory for it
@@ -206,6 +214,59 @@ In the k3d cluster with the test Git server (below), simulating what the workflo
 | **A commit to `main`** (new tags for staging and the backend with 2 replicas in the manifests) | staging took the new images and the 2 replicas; **production did not change** (`production` at its old commit) |
 | **The tag** (the `production` branch moved to the tagged commit + the tags) | production took the images `v1.0.0` and the 2 replicas of the tagged commit |
 
+## Exercise 4.10: code and configuration in different repositories
+
+| Repository | What it has | Who writes to it |
+| ---------- | ----------- | ---------------- |
+| **[KubernetesSubmissions](https://github.com/Walter25S/KubernetesSubmissions)** (code) | the source of the applications, their Dockerfiles, the CI workflows | people |
+| **[KubernetesSubmissions-config](https://github.com/Walter25S/KubernetesSubmissions-config)** (configuration) | the manifests, the overlays of staging and production, the ArgoCD `Application`s | people (to change the configuration) and the CI (the image tags) |
+
+The files of the configuration repository are in [../config-repo](../config-repo/README.md) (create the repository in GitHub and
+publish that folder as its root, the steps are in its README). ArgoCD follows **that** repository:
+
+```
+ code repository                                    configuration repository                cluster
+ push to main  -> gitops-staging.yaml      ->       commit in overlays/staging (main)   ->  ArgoCD -> staging
+ tag v1.0.0    -> gitops-production.yaml   ->       branch production = main + tags     ->  ArgoCD -> production
+ push (log_output) -> log-output.yaml      ->       commit in log-output (main)         ->  ArgoCD -> exercises
+```
+
+What changed in the three workflows of this repository ([gitops-staging](../.github/workflows/gitops-staging.yaml),
+[gitops-production](../.github/workflows/gitops-production.yaml), [log-output](../.github/workflows/log-output.yaml)):
+
+- they only **read** this repository (`permissions: contents: read`): they no longer commit to it;
+- after building and publishing the images they check out the **configuration repository** with the token `CONFIG_REPO_TOKEN`,
+  run `kustomize edit set image` in the overlay and commit there (`main` for staging and Log output, the branch `production`
+  for a tag). `GITHUB_TOKEN` only reaches the repository of the workflow, so a token for the other one is needed.
+  A commit pushed with a personal token **does** start the workflows of the other repository, but that one has none, so there
+  is no loop.
+
+Moved to the configuration repository and removed from this one: `gitops/base`, `gitops/overlays`, `argocd/`,
+`log_output/kustomization.yaml` and `todo_backup/local` (the version of the backup for a cluster that is not GKE). The manifests of
+each application are still in its own folder here (for local use, the GKE pipeline and the history of the exercises), but what
+**ArgoCD deploys** is in the configuration repository.
+
+### What you have to do (manual, once)
+
+1. Create the repository `KubernetesSubmissions-config` in GitHub and publish [../config-repo](../config-repo/README.md) in it
+   (also the branch `production`).
+2. Create a fine-grained token with *Contents: Read and write* on **that repository only** and save it in **this** repository as
+   the secret `CONFIG_REPO_TOKEN`. (Together with `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`, see above.)
+3. Point ArgoCD to it: `kubectl apply -n argocd -f config-repo/argocd/project-staging.yaml -f config-repo/argocd/project-production.yaml -f config-repo/argocd/log-output.yaml`.
+
+### Tested
+
+In the k3d cluster with the test Git server, which has two repositories, `code` and `config` (the configuration repository
+was created from [../config-repo](../config-repo/) as an independent repository with its own history):
+
+| Check | Result |
+| ----- | ------ |
+| What is deployed from the configuration repository, compared with what the single repository deployed | the manifests rendered with `kustomize` are **identical** (staging, production and Log output) |
+| The three ArgoCD applications re-pointed to the configuration repository | `Synced` / `Healthy` with no change in the cluster |
+| The CI of the code repository releases to staging (a commit in the configuration repository, branch `main`) | staging changed its images; **production did not** |
+| The CI of the code repository releases a tag (the branch `production` of the configuration repository) | production changed its images |
+| The code repository during all that | **no commit**: its head did not move |
+
 ## Test Git server
 
 [test-git-server](test-git-server/) is a Git server (nginx + `git-http-backend`, no authentication, only for
@@ -214,7 +275,7 @@ play the role of the CI by committing to it.
 
 ```bash
 docker build -t wallas25/git-server:test gitops/test-git-server && k3d image import wallas25/git-server:test
-kubectl apply -f gitops/test-git-server/deployment.yaml          # creates the repository "config"
+kubectl apply -f gitops/test-git-server/deployment.yaml          # creates the repositories "code" and "config"
 kubectl port-forward -n gitserver svc/git-server 8090:8080 &
 git push http://localhost:8090/git/config.git main:main          # your branch becomes its main
 # an Application whose repoURL is http://git-server.gitserver.svc.cluster.local:8080/git/config.git
@@ -228,3 +289,4 @@ makes ArgoCD look at Git right away instead of waiting for the next poll.
 - 4.7
 - 4.8 (first version, only `main`; replaced by the two environments of 4.9)
 - 4.9
+- 4.10

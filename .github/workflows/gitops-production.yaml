@@ -1,9 +1,10 @@
 name: GitOps production
 
-# A tag, for example v1.0.0, is deployed to PRODUCTION (exercise 4.9). The workflow builds the four images from
-# the tagged commit, publishes them tagged with the name of the tag, and then moves the branch "production" to that
-# commit plus one commit that writes the tags in the overlay of production. ArgoCD (application
-# project-production) follows that branch, so only tagged commits reach production.
+# A tag, for example v1.0.0, is deployed to PRODUCTION (exercises 4.9 and 4.10). The code and the configuration are in
+# different repositories: the workflow builds the four images from the tagged commit of this repository, publishes them
+# tagged with the name of the tag, and then moves the branch "production" of the CONFIGURATION repository
+# (Walter25S/KubernetesSubmissions-config) to its current main plus one commit that writes those tags in the overlay of
+# production. ArgoCD follows that branch, so only tags reach production.
 #
 #   git tag v1.0.0 && git push origin v1.0.0
 on:
@@ -12,7 +13,7 @@ on:
       - "v*"
 
 permissions:
-  contents: write # to push the branch "production"
+  contents: read
 
 concurrency:
   group: gitops-production
@@ -24,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # the commit of the tag
-      - name: Checkout
+      - name: Checkout the code
         uses: actions/checkout@v6
 
       - name: Login to Docker Hub
@@ -40,21 +41,30 @@ jobs:
             docker push "wallas25/$IMAGE:$GITHUB_REF_NAME"
           done
 
+      - name: Checkout the configuration repository
+        uses: actions/checkout@v6
+        with:
+          repository: Walter25S/KubernetesSubmissions-config
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: config
+
       - name: Set up Kustomize
         uses: imranismail/setup-kustomize@v3
 
-      # production = the tagged commit + one commit with the image tags. The branch is rebuilt in every release,
-      # so it is pushed with --force: it only points ArgoCD to what is in production.
+      # production = the current manifests of the main branch of the configuration repository (the ones tested in
+      # staging) + one commit with the image tags. The branch is rebuilt in every release, so it is pushed with --force:
+      # it only points ArgoCD to what is in production.
       - name: Move the production branch
         run: |-
+          cd config
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C production
-          cd gitops/overlays/production
+          cd overlays/production
           for IMAGE in todo-app todo-backend todo-cronjob broadcaster; do
             kustomize edit set image "wallas25/$IMAGE=wallas25/$IMAGE:$GITHUB_REF_NAME"
           done
-          cd ../../..
-          git add gitops/overlays/production/kustomization.yaml
-          git commit -m "production: release $GITHUB_REF_NAME"
+          cd ../..
+          git add overlays/production/kustomization.yaml
+          git commit -m "production: release $GITHUB_REF_NAME of $GITHUB_REPOSITORY"
           git push --force origin production

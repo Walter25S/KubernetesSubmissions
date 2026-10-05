@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-cronjob-config
+  namespace: project
+data:
+  # answers with a redirect to a random article
+  RANDOM_ARTICLE_URL: https://en.wikipedia.org/wiki/Special:Random
+  TODO_BACKEND_URL: http://todo-backend-svc:2345
+  # Wikimedia asks clients to identify themselves
+  USER_AGENT: KubernetesSubmissions-todo-cronjob/1.0 (DevOps with Kubernetes course exercise)
+  REQUEST_TIMEOUT_MS: "5000"

@@ -24,8 +24,9 @@ spec:
           image: wallas25/git-server:test
           imagePullPolicy: IfNotPresent
           env:
+            # the repositories to create, separated by spaces: the code and the configuration (exercise 4.10)
             - name: REPOS
-              value: "config"
+              value: "code config"
           ports:
             - containerPort: 8080
           readinessProbe:

@@ -1,21 +1,20 @@
 name: Log output (GitOps)
 
-# GitOps for "Log output" (exercise 4.7). This workflow does NOT deploy anything to the cluster: it
-# builds and publishes the images and writes the new image tags in log_output/kustomization.yaml, in
-# the repository. ArgoCD, running in the cluster, sees that commit and updates the application.
+# GitOps for "Log output" (exercises 4.7 and 4.10). The code is in this repository; the configuration that runs in the
+# cluster is in Walter25S/KubernetesSubmissions-config (folder log-output). The workflow builds and publishes the images and
+# writes their tags there. ArgoCD, running in the cluster, sees that commit and updates the application.
 #
-#   code change -> this workflow -> image in Docker Hub + commit of the tags -> ArgoCD pulls and deploys
+#   code change -> this workflow -> image in Docker Hub + commit of the tags in the config repository -> ArgoCD
 on:
   push:
     branches:
       - main
-    # only when the code of the images changes (not when this workflow commits kustomization.yaml)
     paths:
       - log_output/writer/**
       - log_output/reader/**
 
 permissions:
-  contents: write # to commit kustomization.yaml
+  contents: read
 
 concurrency:
   group: log-output-gitops
@@ -26,7 +25,7 @@ jobs:
     name: Build, push, release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout the code
         uses: actions/checkout@v6
 
       - name: Login to Docker Hub
@@ -35,7 +34,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # the commit SHA is a unique tag: every build is a new image, and the tag says what code it has
       - name: Build and publish the images
         run: |-
           docker build --tag "wallas25/log-output-writer:$GITHUB_SHA" log_output/writer
@@ -43,18 +41,28 @@ jobs:
           docker push "wallas25/log-output-writer:$GITHUB_SHA"
           docker push "wallas25/log-output-reader:$GITHUB_SHA"
 
+      - name: Checkout the configuration repository
+        uses: actions/checkout@v6
+        with:
+          repository: Walter25S/KubernetesSubmissions-config
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: config
+
       - name: Set up Kustomize
         uses: imranismail/setup-kustomize@v3
 
       - name: Use the new images
         run: |-
-          cd log_output
+          cd config/log-output
           kustomize edit set image "wallas25/log-output-writer=wallas25/log-output-writer:$GITHUB_SHA"
           kustomize edit set image "wallas25/log-output-reader=wallas25/log-output-reader:$GITHUB_SHA"
 
-      - name: Commit kustomization.yaml
-        uses: EndBug/add-and-commit@v10
-        with:
-          add: log_output/kustomization.yaml
-          message: "log_output: release ${{ github.sha }}"
-          pull: "--rebase --autostash"
+      - name: Commit to the configuration repository
+        run: |-
+          cd config
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add log-output/kustomization.yaml
+          git commit -m "log-output: release $GITHUB_SHA of $GITHUB_REPOSITORY"
+          git pull --rebase origin main
+          git push origin HEAD:main

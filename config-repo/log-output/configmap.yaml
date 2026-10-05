@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: log-output-config
+  namespace: exercises
+data:
+  # mounted as a file in the reader container
+  information.txt: |
+    this text is from file
+  # exposed to the reader container as an environment variable
+  MESSAGE: hello world
