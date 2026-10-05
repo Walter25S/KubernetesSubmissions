@@ -1,0 +1,43 @@
+# Ping-pong as a Knative Service (exercise 5.7). A Knative Service replaces the Deployment, the Service and the
+# autoscaling of the app: Knative creates the Deployment (a "revision"), the routing and scales it, even to zero
+# pods when nobody calls it. The app is stateless (the counter is in Postgres), which Knative requires.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ping-pong
+  namespace: exercises
+spec:
+  template:
+    metadata:
+      annotations:
+        # up to 3 pods; scale to zero is the default (after about a minute without requests)
+        autoscaling.knative.dev/max-scale: "3"
+    spec:
+      containers:
+        # "dev.local" is a registry name that Knative does not try to resolve to a digest: the image is the local one of
+        # the exercise 4.1 (docker tag wallas25/ping-pong:4.1 dev.local/ping-pong:4.1; k3d image import ...). With the
+        # image in Docker Hub or in another registry, use its real name.
+        - image: dev.local/ping-pong:4.1
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: ping-pong-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /healthz
+            periodSeconds: 5
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

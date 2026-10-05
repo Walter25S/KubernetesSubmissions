@@ -1,6 +1,6 @@
 # Knative: serverless on Kubernetes
 
-Exercise 5.6. **Knative Serving** turns a container image into a *Service* that has HTTP routing, a revision history, traffic
+Exercises 5.6 and 5.7. **Knative Serving** turns a container image into a *Service* that has HTTP routing, a revision history, traffic
 splitting and an autoscaler that goes **from zero to many pods and back to zero**. One object (`serving.knative.dev/v1 Service`)
 replaces the Deployment, the Service and the Ingress of a normal app.
 
@@ -10,6 +10,7 @@ replaces the Deployment, the Service and the Ingress of a normal app.
 | [manifests/hello.yaml](manifests/hello.yaml) | The first service of the guide |
 | [manifests/hello-split.yaml](manifests/hello-split.yaml) | A new revision and the 50 / 50 traffic split |
 | [manifests/autoscale-go.yaml](manifests/autoscale-go.yaml) | The autoscaling example |
+| [manifests/ping-pong-ksvc.yaml](manifests/ping-pong-ksvc.yaml) and [manifests/exercises.yaml](manifests/exercises.yaml) | Ping-pong as a Knative Service, and the Log output app that uses it (5.7) |
 
 ## Install
 
@@ -78,3 +79,57 @@ no load        : 1 pod
 under the load : 3 pods      (the autoscaler adds pods when there are more than 10 requests in flight for each one)
 load stopped   : 3 pods for about 60 seconds, then 0
 ```
+
+## Exercise 5.7: Deploy to serverless
+
+The ping-pong service of the Log output app runs as a **Knative Service** ([ping-pong-ksvc.yaml](manifests/ping-pong-ksvc.yaml)): the Deployment, the Service and the
+(Ingress) of the app are replaced by that one object, and Knative scales it. The app is stateless (the counter is in Postgres), which is what Knative asks of an app.
+
+```
+Log output (Deployment) --http://ping-pong.exercises.svc.cluster.local/pings--> ping-pong (Knative Service, 0..3 pods) --> Postgres (StatefulSet)
+```
+
+| File | What it has |
+| ---- | ----------- |
+| [manifests/exercises.yaml](manifests/exercises.yaml) | The namespace `exercises`, the database, and Log output (writer + reader) |
+| [manifests/ping-pong-ksvc.yaml](manifests/ping-pong-ksvc.yaml) | The Knative Service: `max-scale: 3`, and scale to zero (the default) |
+
+Things that are different from a normal Deployment:
+
+- **The address.** A Knative Service `ping-pong` in the namespace `exercises` is reached inside the cluster as `http://ping-pong.exercises.svc.cluster.local`
+  (the **fully qualified** name, as the tip of the exercise says; the port is the 80, not the 2346 of the old Service) and from outside as
+  `ping-pong.exercises.172.19.0.2.sslip.io`. Log output only changed its `PINGPONG_URL`.
+- **No readiness probe in Log output.** The one of the exercise 4.1 calls ping-pong every 5 seconds, which would keep it awake and it would never scale to zero.
+- **The image.** Knative turns the tag of an image into a digest by asking its registry, which a local image does not have. The name `dev.local/ping-pong:4.1`
+  is one that Knative does not try to resolve, so the image of 4.1 is tagged with it and imported into the cluster
+  (`docker tag wallas25/ping-pong:4.1 dev.local/ping-pong:4.1` and `k3d image import ... -c knative`). With the image in a registry, use its real name.
+
+```bash
+kubectl apply -f manifests/exercises.yaml
+kubectl -n exercises create secret generic postgres-secret --from-literal=POSTGRES_PASSWORD=<a password>
+kubectl apply -f manifests/ping-pong-ksvc.yaml
+kubectl -n exercises get ksvc
+kubectl -n exercises port-forward svc/log-output-svc 8095:2345          # http://localhost:8095
+curl -H "Host: ping-pong.exercises.172.19.0.2.sslip.io" http://localhost:8081/      # ping-pong from outside, through Kourier
+```
+
+### Tested
+
+```
+$ kubectl -n exercises get ksvc
+NAME        URL                                              LATESTCREATED     LATESTREADY       READY
+ping-pong   http://ping-pong.exercises.172.19.0.2.sslip.io   ping-pong-00001   ping-pong-00001   True
+
+$ curl -H "Host: ping-pong.exercises.172.19.0.2.sslip.io" http://localhost:8081/        # three times
+pong 0   pong 1   pong 2
+
+$ curl localhost:8095/                                         # Log output, calling ping-pong by its cluster name
+file content: this text is from file
+env variable: MESSAGE=hello world
+2026-10-05T11:32:48.940Z: 8bbacf03-95ad-4fcb-820b-65f9401fecb1.
+Ping / Pongs: 3
+```
+
+**Scale to zero and back**: with nobody calling it, the pod of ping-pong went away (about three minutes: the window of the autoscaler plus the time the pod takes to stop;
+Log output and Postgres kept running). Opening the page of Log output, which calls it, woke it up: the answer took **3.1 s** (cold start), and the counter was
+still `3`, because it is in the database and not in the pod.
