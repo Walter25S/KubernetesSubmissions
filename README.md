@@ -83,4 +83,6 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 
 ## Chapter 6
 
-Added as the course progresses.
+| Exercise | App directory |
+| -------- | ------------- |
+| [5.1](https://github.com/Walter25S/KubernetesSubmissions/tree/5.1/dummysite) | `dummysite` |

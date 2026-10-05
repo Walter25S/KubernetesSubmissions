@@ -1,0 +1,14 @@
+apiVersion: stable.dwk/v1
+kind: DummySite
+metadata:
+  name: example
+spec:
+  website_url: https://example.com/
+---
+# a bigger page: the styles can be partly broken, which the exercise accepts
+apiVersion: stable.dwk/v1
+kind: DummySite
+metadata:
+  name: wikipedia
+spec:
+  website_url: https://en.wikipedia.org/wiki/Kubernetes

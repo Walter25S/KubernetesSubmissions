@@ -1,0 +1,10 @@
+{
+  "name": "dummysite-controller",
+  "version": "1.0.0",
+  "description": "Controller of the DummySite custom resource: serves a copy of a web page inside the cluster",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "MIT"
+}

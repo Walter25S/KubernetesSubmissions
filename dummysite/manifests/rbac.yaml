@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dummysite
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dummysite-controller-account
+  namespace: dummysite
+---
+# A ClusterRole, because the controller serves the DummySites of every namespace
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: dummysite-controller-role
+rules:
+  # what it watches
+  - apiGroups: ["stable.dwk"]
+    resources: ["dummysites"]
+    verbs: ["get", "list", "watch"]
+  # where it writes the result
+  - apiGroups: ["stable.dwk"]
+    resources: ["dummysites/status"]
+    verbs: ["get", "patch"]
+  # what it creates for each DummySite (server-side apply needs create and patch)
+  - apiGroups: [""]
+    resources: ["configmaps", "services"]
+    verbs: ["get", "create", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "create", "patch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: dummysite-controller-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dummysite-controller-role
+subjects:
+  - kind: ServiceAccount
+    name: dummysite-controller-account
+    namespace: dummysite
