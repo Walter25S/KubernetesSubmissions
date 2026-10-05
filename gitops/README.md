@@ -97,6 +97,30 @@ of the CI was simulated:
 | someone runs `kubectl scale ... --replicas=3` by hand | **3 seconds** later ArgoCD set it back to 1 (`selfHeal`) |
 | `git revert` of the release commit | the cluster went back to the previous images in 13 seconds |
 
+## Exercise 4.8: the project with GitOps
+
+The same idea for the project (`todo_app`, `todo_backend`, `todo_cronjob`, the database and the `broadcaster`):
+
+| File | What it is |
+| ---- | ---------- |
+| [../project/k3d/kustomization.yaml](../project/k3d/kustomization.yaml) | What ArgoCD deploys: the local environment of the project ([../project/README.md](../project/README.md)). Its `images:` block holds the tags of the four images that run. |
+| [../argocd/project.yaml](../argocd/project.yaml) | The `Application`: watches `project/k3d` in the **main branch** and keeps the namespace `project` of the local cluster equal to it (automatic sync, `prune`, `selfHeal`). |
+| [../.github/workflows/project-gitops.yaml](../.github/workflows/project-gitops.yaml) | The CI: when the code of one of the four images changes on `main`, it builds the four images with the commit SHA as tag, pushes them to Docker Hub, runs `kustomize edit set image` and commits `project/k3d/kustomization.yaml`. |
+
+The old workflow that pushed to GKE ([../.github/workflows/project.yaml](../.github/workflows/project.yaml), exercises 3.6
+and 3.7) now only runs by hand (*Run workflow* in the Actions tab), so a push of code is deployed one way, GitOps, and
+not two. It is still there for the GKE cluster, which is not managed by ArgoCD.
+
+**The Secrets are not in Git.** The password of the database (`postgres-secret`) and the URL of the chat service
+(`broadcaster-webhook`) are created in the cluster by hand ([../broadcaster/README.md](../broadcaster/README.md)); ArgoCD does
+not know them, so it neither creates nor deletes them. Everything it does not manage is left alone by `prune`
+too (for example the `webhook-receiver` that was started for testing).
+
+Tested in the k3d cluster with the test Git server (below): the `Application` took over the namespace `project`,
+which had been deployed by hand, and it was `Synced` / `Healthy`. Then a commit that changes the four tags (what the CI
+does) replaced the four workloads with the new images, and the `broadcaster`, which had been scaled by hand to 6
+replicas, went back to the 1 of Git (`selfHeal`).
+
 ## Test Git server
 
 [test-git-server](test-git-server/) is a Git server (nginx + `git-http-backend`, no authentication, only for
@@ -117,3 +141,4 @@ makes ArgoCD look at Git right away instead of waiting for the next poll.
 ## Exercises
 
 - 4.7
+- 4.8

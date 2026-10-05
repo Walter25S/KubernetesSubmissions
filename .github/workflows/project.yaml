@@ -1,18 +1,16 @@
 name: Release project
 
-# Builds the three images of the project, publishes them to Google Artifact Registry and
-# deploys them to the GKE cluster with Kustomize (exercise 3.6).
+# PUSH deployment of the project to GKE (exercises 3.6 and 3.7): this workflow builds the three images of
+# the project, publishes them to Google Artifact Registry and deploys them to the GKE cluster itself, with
+# Kustomize and with access to the cluster.
 # Every branch gets its own environment, a namespace named like the branch; the main branch
-# is deployed to the namespace "project" (exercise 3.7).
-# It only runs when something of the project changes.
+# is deployed to the namespace "project".
+#
+# Since exercise 4.8 the project is deployed with GitOps (ArgoCD, see gitops/README.md and
+# .github/workflows/project-gitops.yaml), so a push no longer starts this workflow: it is run by hand from the
+# Actions tab of GitHub ("Run workflow") when the GKE cluster has to be updated.
 on:
-  push:
-    paths:
-      - todo_app/**
-      - todo_backend/**
-      - todo_cronjob/**
-      - project/**
-      - .github/workflows/project.yaml
+  workflow_dispatch:
 
 permissions:
   contents: read

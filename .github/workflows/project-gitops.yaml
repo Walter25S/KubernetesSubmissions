@@ -1,0 +1,61 @@
+name: Project (GitOps)
+
+# GitOps for the project (exercise 4.8). It does not deploy anything to the cluster: it builds and publishes
+# the four images of the project and writes their new tags in project/k3d/kustomization.yaml. ArgoCD, which
+# runs in the cluster, sees that commit on main and updates the application.
+on:
+  push:
+    branches:
+      - main
+    # only when the code of an image changes (not when this workflow commits kustomization.yaml)
+    paths:
+      - todo_app/**
+      - todo_backend/**
+      - todo_cronjob/**
+      - broadcaster/**
+
+permissions:
+  contents: write # to commit kustomization.yaml
+
+concurrency:
+  group: project-gitops
+  cancel-in-progress: false
+
+jobs:
+  build-publish-release:
+    name: Build, push, release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # image name -> folder: todo-app -> todo_app ... The tag is the commit SHA, unique for every build
+      - name: Build and publish the images
+        run: |-
+          for IMAGE in todo-app todo-backend todo-cronjob broadcaster; do
+            docker build --tag "wallas25/$IMAGE:$GITHUB_SHA" "${IMAGE//-/_}"
+            docker push "wallas25/$IMAGE:$GITHUB_SHA"
+          done
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v3
+
+      - name: Use the new images
+        run: |-
+          cd project/k3d
+          for IMAGE in todo-app todo-backend todo-cronjob broadcaster; do
+            kustomize edit set image "wallas25/$IMAGE=wallas25/$IMAGE:$GITHUB_SHA"
+          done
+
+      - name: Commit kustomization.yaml
+        uses: EndBug/add-and-commit@v10
+        with:
+          add: project/k3d/kustomization.yaml
+          message: "project: release ${{ github.sha }}"
+          pull: "--rebase --autostash"

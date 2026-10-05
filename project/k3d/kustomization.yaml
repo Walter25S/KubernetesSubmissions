@@ -11,3 +11,16 @@ resources:
 
 patches:
   - path: todo-backend-nats.yaml
+
+# The images that are running (exercise 4.8). The CI workflow .github/workflows/project-gitops.yaml
+# changes these tags with `kustomize edit set image` and commits the file: that commit is what
+# updates the cluster, through ArgoCD.
+images:
+  - name: wallas25/todo-app
+    newTag: "4.5"
+  - name: wallas25/todo-backend
+    newTag: "4.6"
+  - name: wallas25/todo-cronjob
+    newTag: "2.9"
+  - name: wallas25/broadcaster
+    newTag: "4.6"
