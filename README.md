@@ -92,3 +92,4 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | [5.5](https://github.com/Walter25S/KubernetesSubmissions/tree/5.5/beyond_kubernetes) | `beyond_kubernetes` (platform comparison) |
 | [5.6](https://github.com/Walter25S/KubernetesSubmissions/tree/5.6/knative) | `knative` |
 | [5.7](https://github.com/Walter25S/KubernetesSubmissions/tree/5.7/knative) | `knative` (ping-pong as a Knative Service) |
+| [5.8](https://github.com/Walter25S/KubernetesSubmissions/tree/5.8/beyond_kubernetes) | `beyond_kubernetes` (landscape) |
