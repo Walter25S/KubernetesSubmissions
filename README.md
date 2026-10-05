@@ -86,3 +86,4 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | Exercise | App directory |
 | -------- | ------------- |
 | [5.1](https://github.com/Walter25S/KubernetesSubmissions/tree/5.1/dummysite) | `dummysite` |
+| [5.4](https://github.com/Walter25S/KubernetesSubmissions/tree/5.4/wikipedia) | `wikipedia` |

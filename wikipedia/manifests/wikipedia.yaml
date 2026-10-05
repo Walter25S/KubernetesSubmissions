@@ -1,0 +1,140 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wikipedia
+---
+# The scripts of the init container and of the sidecar
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wikipedia-scripts
+  namespace: wikipedia
+data:
+  # fetch.sh <url>: saves the page in the directory that nginx serves. It is written to a temporary file and then
+  # moved, so nginx never serves a half-written page. A <base> tag is added so the styles and the images of the page,
+  # which Wikipedia links with relative paths, are loaded from Wikipedia (the final URL is used: the random page
+  # is a redirect).
+  fetch.sh: |
+    #!/bin/sh
+    set -eu
+    TMP=/www/.download.tmp
+    FINAL=$(curl -fsSL -A "wikipedia-pod/1.0 (course exercise)" -o "$TMP" -w '%{url_effective}' "$1")
+    sed -i "s#<head[^>]*>#&<base href=\"$FINAL\">#" "$TMP"
+    mv "$TMP" /www/index.html
+    echo "saved $FINAL ($(wc -c < /www/index.html) bytes)"
+  # sidecar.sh: waits between MIN_SECONDS and MAX_SECONDS and saves a random page, forever
+  sidecar.sh: |
+    #!/bin/sh
+    while true; do
+      WAIT=$(( MIN_SECONDS + $(od -An -N2 -tu2 /dev/urandom | tr -d ' ') % (MAX_SECONDS - MIN_SECONDS + 1) ))
+      echo "next random page in ${WAIT} seconds"
+      sleep "$WAIT"
+      /scripts/fetch.sh https://en.wikipedia.org/wiki/Special:Random || echo "could not get a page, the old one stays"
+    done
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wikipedia-dep
+  namespace: wikipedia
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wikipedia
+  template:
+    metadata:
+      labels:
+        app: wikipedia
+    spec:
+      volumes:
+        # what the three containers share: the init container and the sidecar write, nginx reads
+        - name: www
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: wikipedia-scripts
+            defaultMode: 0555
+      # runs once, to the end, before the other containers start: the pod always begins with the Kubernetes page
+      initContainers:
+        - name: init-kubernetes-page
+          image: curlimages/curl:8.11.1
+          command: ["/scripts/fetch.sh", "https://en.wikipedia.org/wiki/Kubernetes"]
+          volumeMounts:
+            - name: www
+              mountPath: /www
+            - name: scripts
+              mountPath: /scripts
+      containers:
+        # the main container: serves what is in the directory
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: www
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+        # the sidecar: runs next to nginx, for as long as the pod lives, and renews the page from time to time
+        - name: random-page-sidecar
+          image: curlimages/curl:8.11.1
+          command: ["/scripts/sidecar.sh"]
+          env:
+            - name: MIN_SECONDS
+              value: "300" # 5 minutes
+            - name: MAX_SECONDS
+              value: "900" # 15 minutes
+          volumeMounts:
+            - name: www
+              mountPath: /www
+            - name: scripts
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wikipedia-svc
+  namespace: wikipedia
+spec:
+  selector:
+    app: wikipedia
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wikipedia-ingress
+  namespace: wikipedia
+spec:
+  rules:
+    - host: wikipedia.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wikipedia-svc
+                port:
+                  number: 80
