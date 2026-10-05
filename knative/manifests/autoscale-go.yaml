@@ -1,0 +1,17 @@
+# "Autoscaling" of the guide (exercise 5.6): the autoscaler of Knative (KPA) adds pods when there are more than
+# 10 concurrent requests for each pod (target) and removes them, down to zero, when the load goes away.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: autoscale-go
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/target: "10"
+        autoscaling.knative.dev/max-scale: "6"
+    spec:
+      containers:
+        - image: ghcr.io/knative/autoscale-go:latest
+          ports:
+            - containerPort: 8080

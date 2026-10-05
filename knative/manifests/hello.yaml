@@ -1,0 +1,16 @@
+# The first Knative Service of the guide (exercise 5.6): "Deploying a Knative Service".
+# One object replaces the Deployment, the Service, the routing and the autoscaler.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  template:
+    spec:
+      containers:
+        - image: ghcr.io/knative/helloworld-go:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: TARGET
+              value: "World"
