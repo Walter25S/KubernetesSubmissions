@@ -1,0 +1,10 @@
+{
+  "name": "greeter",
+  "version": "1.0.0",
+  "description": "Answers with a greeting; two versions are used to try the traffic splitting of the service mesh",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "MIT"
+}

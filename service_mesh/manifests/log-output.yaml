@@ -1,0 +1,216 @@
+# Log output in the service mesh: the same app as in the namespace "exercises", with the call to the greeter
+# (GREETER_URL), plus ping-pong and its database, which the app needs.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: log-output-config
+  namespace: mesh
+data:
+  information.txt: |
+    this text is from file
+  MESSAGE: hello world
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-output-dep
+  namespace: mesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-output
+  template:
+    metadata:
+      labels:
+        app: log-output
+    spec:
+      volumes:
+        - name: shared-logs
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: log-output-config
+            items:
+              - key: information.txt
+                path: information.txt
+      containers:
+        - name: writer
+          image: wallas25/log-output-writer:1.10
+          volumeMounts:
+            - name: shared-logs
+              mountPath: /usr/src/app/files
+        - name: reader
+          image: wallas25/log-output-reader:5.3
+          env:
+            - name: PINGPONG_URL
+              value: http://ping-pong-svc.mesh.svc.cluster.local:2346/pings
+            # the fully qualified name of the service of the greeter (the HTTPRoute splits the traffic to it)
+            - name: GREETER_URL
+              value: http://greeter-svc.mesh.svc.cluster.local:80
+            - name: MESSAGE
+              valueFrom:
+                configMapKeyRef:
+                  name: log-output-config
+                  key: MESSAGE
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 2
+          volumeMounts:
+            - name: shared-logs
+              mountPath: /usr/src/app/files
+            - name: config
+              mountPath: /usr/src/app/config
+              readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: log-output-svc
+  namespace: mesh
+spec:
+  type: ClusterIP
+  selector:
+    app: log-output
+  ports:
+    - port: 2345
+      protocol: TCP
+      targetPort: 3000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ping-pong-config
+  namespace: mesh
+data:
+  PORT: "3000"
+  DB_HOST: postgres-svc
+  DB_PORT: "5432"
+  DB_NAME: pingpong
+  DB_USER: pingpong
+  DB_RETRY_DELAY_MS: "2000"
+  DB_CONNECT_TIMEOUT_MS: "3000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ping-pong-dep
+  namespace: mesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ping-pong
+  template:
+    metadata:
+      labels:
+        app: ping-pong
+    spec:
+      containers:
+        - name: ping-pong
+          image: wallas25/ping-pong:4.1
+          envFrom:
+            - configMapRef:
+                name: ping-pong-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ping-pong-svc
+  namespace: mesh
+spec:
+  type: ClusterIP
+  selector:
+    app: ping-pong
+  ports:
+    - port: 2346
+      protocol: TCP
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-svc
+  namespace: mesh
+  labels:
+    app: postgres
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      name: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-stset
+  namespace: mesh
+spec:
+  serviceName: postgres-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              value: pingpong
+            - name: POSTGRES_USER
+              value: pingpong
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 100Mi

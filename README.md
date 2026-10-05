@@ -87,4 +87,5 @@ _(The exercise-to-app mapping is a draft; adjust it as each exercise is read.)_
 | -------- | ------------- |
 | [5.1](https://github.com/Walter25S/KubernetesSubmissions/tree/5.1/dummysite) | `dummysite` |
 | [5.2](https://github.com/Walter25S/KubernetesSubmissions/tree/5.2/service_mesh) | `service_mesh` (Istio ambient, Kiali, Bookinfo) |
+| [5.3](https://github.com/Walter25S/KubernetesSubmissions/tree/5.3/service_mesh) | `service_mesh` / `log_output/reader` |
 | [5.4](https://github.com/Walter25S/KubernetesSubmissions/tree/5.4/wikipedia) | `wikipedia` |

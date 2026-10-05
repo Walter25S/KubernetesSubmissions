@@ -33,6 +33,22 @@ const pingPongs = async () => {
   }
 };
 
+// The greeting of the greeter service (exercise 5.3). Optional: without GREETER_URL the output is the same as always.
+const greeterUrl = process.env.GREETER_URL || '';
+
+const greeting = async () => {
+  try {
+    const response = await fetch(greeterUrl, { signal: AbortSignal.timeout(3000) });
+    if (!response.ok) {
+      throw new Error(`status ${response.status}`);
+    }
+    return (await response.text()).trim();
+  } catch (err) {
+    console.error(`Could not get the greeting: ${err.message}`);
+    return 'unavailable';
+  }
+};
+
 const sendText = (res, status, text) => {
   res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end(text);
@@ -67,7 +83,8 @@ const server = http.createServer(async (req, res) => {
       `file content: ${fileContent()}\n` +
         `env variable: MESSAGE=${message}\n` +
         `${line}.\n` +
-        `Ping / Pongs: ${await pingPongs()}\n`,
+        `Ping / Pongs: ${await pingPongs()}\n` +
+        (greeterUrl ? `Greetings: ${await greeting()}\n` : ''),
     );
     return;
   }

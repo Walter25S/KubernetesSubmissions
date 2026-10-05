@@ -1,0 +1,144 @@
+# Two versions of the greeter. The label "version" tells them apart.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: greeter-dep-v1
+  namespace: mesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: greeter
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: greeter
+        version: v1
+    spec:
+      containers:
+        - name: greeter
+          image: wallas25/greeter:5.3
+          env:
+            - name: VERSION
+              value: v1
+            - name: GREETING
+              value: hello
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: greeter-dep-v2
+  namespace: mesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: greeter
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: greeter
+        version: v2
+    spec:
+      containers:
+        - name: greeter
+          image: wallas25/greeter:5.3
+          env:
+            - name: VERSION
+              value: v2
+            - name: GREETING
+              value: hola
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---
+# greeter-svc is the one the log app calls, and the one the HTTPRoute is attached to. It selects the pods of both
+# versions, but the HTTPRoute (applied by the waypoint) sends the requests to greeter-svc-1 and greeter-svc-2.
+apiVersion: v1
+kind: Service
+metadata:
+  name: greeter-svc
+  namespace: mesh
+spec:
+  type: ClusterIP
+  selector:
+    app: greeter
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: greeter-svc-1
+  namespace: mesh
+spec:
+  type: ClusterIP
+  selector:
+    app: greeter
+    version: v1
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: greeter-svc-2
+  namespace: mesh
+spec:
+  type: ClusterIP
+  selector:
+    app: greeter
+    version: v2
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 3000
+---
+# The traffic split: 75 % to the version 1 and 25 % to the version 2. The parent is a Service, not a Gateway:
+# it is the traffic inside the mesh (log-output -> greeter) that is split.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: greeter
+  namespace: mesh
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: greeter-svc
+      port: 80
+  rules:
+    - backendRefs:
+        - name: greeter-svc-1
+          port: 80
+          weight: 75
+        - name: greeter-svc-2
+          port: 80
+          weight: 25

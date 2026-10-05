@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mesh
+  labels:
+    # the pods of the namespace are in the Istio ambient mesh (mTLS and telemetry through ztunnel, no sidecars)
+    istio.io/dataplane-mode: ambient
+    # the traffic to the Services of the namespace goes through the waypoint proxy below, which applies the HTTPRoutes
+    istio.io/use-waypoint: waypoint
+---
+# The waypoint: an Envoy proxy that does the work of layer 7 (splitting the traffic) for the namespace. Without it
+# the ambient mesh only sees TCP, and a HTTPRoute that splits the traffic of a Service would be ignored.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: waypoint
+  namespace: mesh
+  labels:
+    istio.io/waypoint-for: service
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
+---
+# The way in from outside: a Gateway of Istio (a Service of its own, "mesh-gateway-istio") and its routes
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: mesh-gateway
+  namespace: mesh
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: log-output
+  namespace: mesh
+spec:
+  parentRefs:
+    - name: mesh-gateway
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /
+      backendRefs:
+        - name: log-output-svc
+          port: 2345
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /pingpong
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - name: ping-pong-svc
+          port: 2346
