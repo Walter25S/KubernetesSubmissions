@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-backend-config
+  namespace: project
+data:
+  NATS_SUBJECT: todos.staging

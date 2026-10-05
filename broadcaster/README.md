@@ -71,9 +71,9 @@ and the URL of the chat service is a Secret.
 | `NATS_URL` | The NATS server | ConfigMap (`nats://my-nats.nats.svc.cluster.local:4222`) |
 | `NATS_SUBJECT` | The subject the backend publishes to | ConfigMap (`todos`) |
 | `NATS_QUEUE` | The queue group shared by all the replicas | ConfigMap (`broadcaster`) |
-| `MESSAGE_FORMAT` | `generic`, `discord` or `slack` | ConfigMap (`generic`) |
+| `MESSAGE_FORMAT` | `generic`, `discord`, `slack` or `log` (only writes the messages to the log, nothing is forwarded; used by staging, exercise 4.9) | ConfigMap (`generic`) |
 | `REQUEST_TIMEOUT_MS` | Timeout of the request to the chat service | ConfigMap |
-| `WEBHOOK_URL` | Where the messages are sent | Secret `broadcaster-webhook`, key `WEBHOOK_URL` |
+| `WEBHOOK_URL` | Where the messages are sent; not needed with `MESSAGE_FORMAT=log` | Secret `broadcaster-webhook`, key `WEBHOOK_URL` (optional) |
 
 The webhook URL of Discord or Slack contains a token, so it is **not** in the repository: the Secret is
 created in the cluster ([secret.example.yaml](secret.example.yaml) only shows its shape).
@@ -128,3 +128,4 @@ docker push wallas25/broadcaster:4.6
 ## Exercises
 
 - 4.6
+- 4.9 (the `log` format for staging)

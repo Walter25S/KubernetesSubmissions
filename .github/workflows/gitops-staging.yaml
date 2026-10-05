@@ -1,13 +1,13 @@
-name: Project (GitOps)
+name: GitOps staging
 
-# GitOps for the project (exercise 4.8). It does not deploy anything to the cluster: it builds and publishes
-# the four images of the project and writes their new tags in project/k3d/kustomization.yaml. ArgoCD, which
-# runs in the cluster, sees that commit on main and updates the application.
+# Every commit to main that changes the code of the project is deployed to STAGING (exercise 4.9): the
+# workflow builds the four images, publishes them and writes their tags in the overlay of staging,
+# in the repository. ArgoCD (application project-staging, which follows main) applies that commit.
 on:
   push:
     branches:
       - main
-    # only when the code of an image changes (not when this workflow commits kustomization.yaml)
+    # only when the code of an image changes (not when this workflow commits the overlay)
     paths:
       - todo_app/**
       - todo_backend/**
@@ -15,15 +15,15 @@ on:
       - broadcaster/**
 
 permissions:
-  contents: write # to commit kustomization.yaml
+  contents: write # to commit the overlay
 
 concurrency:
-  group: project-gitops
+  group: gitops-staging
   cancel-in-progress: false
 
 jobs:
   build-publish-release:
-    name: Build, push, release
+    name: Build, push, release to staging
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,16 +46,16 @@ jobs:
       - name: Set up Kustomize
         uses: imranismail/setup-kustomize@v3
 
-      - name: Use the new images
+      - name: Use the new images in staging
         run: |-
-          cd project/k3d
+          cd gitops/overlays/staging
           for IMAGE in todo-app todo-backend todo-cronjob broadcaster; do
             kustomize edit set image "wallas25/$IMAGE=wallas25/$IMAGE:$GITHUB_SHA"
           done
 
-      - name: Commit kustomization.yaml
+      - name: Commit the overlay
         uses: EndBug/add-and-commit@v10
         with:
-          add: project/k3d/kustomization.yaml
-          message: "project: release ${{ github.sha }}"
+          add: gitops/overlays/staging/kustomization.yaml
+          message: "staging: release ${{ github.sha }}"
           pull: "--rebase --autostash"

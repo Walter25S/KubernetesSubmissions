@@ -29,6 +29,8 @@ spec:
                 secretKeyRef:
                   name: broadcaster-webhook
                   key: WEBHOOK_URL
+                  # not needed (and not created) in the environments that only log the messages
+                  optional: true
           # Ready only when it is connected to NATS and subscribed
           readinessProbe:
             httpGet:

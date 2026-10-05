@@ -121,6 +121,91 @@ which had been deployed by hand, and it was `Synced` / `Healthy`. Then a commit 
 does) replaced the four workloads with the new images, and the `broadcaster`, which had been scaled by hand to 6
 replicas, went back to the 1 of Git (`selfHeal`).
 
+## Exercise 4.9: staging and production
+
+Two environments of the project, each in its own namespace of the local cluster (`staging` and `production`), built
+from the same base with an overlay each:
+
+```
+gitops/
+  base/                   the project for one namespace (reuses project/base, broadcaster, ...) + volume + Ingress
+  overlays/
+    staging/              namespace staging,    host staging.localhost
+    production/           namespace production, host production.localhost, + the daily backup
+../argocd/
+  project-staging.yaml        follows the branch main
+  project-production.yaml     follows the branch production
+```
+
+| | staging | production |
+| --- | --- | --- |
+| Namespace / address | `staging` / http://staging.localhost:8081 | `production` / http://production.localhost:8081 |
+| Deployed when | **every commit to `main`** | **a tagged commit** (`v*`) |
+| ArgoCD follows | the branch `main` | the branch `production` |
+| Broadcaster | **only logs** the messages (`MESSAGE_FORMAT: log`), it does not forward them | forwards them to the chat service (`generic`; the URL is in the Secret `broadcaster-webhook`) |
+| Database backup | **none** | a CronJob every 24 h ([../todo_backup/local](../todo_backup/local/)) that saves a `pg_dump` in a volume, keeping 7 days |
+| NATS subject | `todos.staging` | `todos.production` |
+
+The NATS subject is different so that a todo created in staging never reaches the broadcaster of production
+(both environments use the same NATS server). Hosts: the Ingress of each environment has its own name, so both share the
+port 8081 of k3d (the browser and `curl` resolve `*.localhost` to the own machine).
+
+**How the two deployments are triggered.** Neither workflow deploys anything: they write the image tags in Git.
+
+- [../.github/workflows/gitops-staging.yaml](../.github/workflows/gitops-staging.yaml): on a push to `main` that changes code,
+  builds the four images tagged with the commit SHA, runs `kustomize edit set image` in `overlays/staging` and commits it to
+  `main`. ArgoCD follows `main`, so it deploys it. A commit that only changes manifests needs no workflow: ArgoCD sees it.
+- [../.github/workflows/gitops-production.yaml](../.github/workflows/gitops-production.yaml): when a tag `v*` is pushed
+  (`git tag v1.0.0 && git push origin v1.0.0`), builds the four images from the tagged commit tagged `v1.0.0`, and then sets the
+  branch **`production`** to *the tagged commit + one commit* that writes those tags in `overlays/production`. ArgoCD follows that branch.
+
+**Why a `production` branch.** If production followed `main`, a commit without a tag that changes a manifest (replicas, a
+ConfigMap) would reach production at once, which is exactly what the exercise forbids. With a separate branch that only the
+tag workflow moves, production changes **only on a tag**, and it gets the manifests of the tagged commit, not those of `main`.
+The branch is rebuilt in every release, so it is pushed with `--force`. Create it once before the first tag:
+`git push origin main:refs/heads/production`.
+
+**Secrets (outside ArgoCD, as the exercise allows).** Before ArgoCD syncs an environment, its namespace must have the
+Secrets; ArgoCD creates the namespace by itself, but creating it first lets you put the Secrets in it:
+
+```bash
+for ns in staging production; do
+  kubectl create namespace $ns
+  kubectl create secret generic postgres-secret -n $ns --from-literal=POSTGRES_PASSWORD="$(openssl rand -hex 16)"
+done
+# production only: where the broadcaster sends the messages (a Discord/Slack webhook, or the fake chat service
+# of ../broadcaster/test-receiver started in the namespace production)
+kubectl create secret generic broadcaster-webhook -n production --from-literal=WEBHOOK_URL='https://discord.com/api/webhooks/<id>/<token>'
+```
+
+Then:
+
+```bash
+kubectl apply -n argocd --server-side --force-conflicts -f argocd/argocd-cm-pvc-health.yaml   # see below, once
+kubectl apply -n argocd -f argocd/project-staging.yaml -f argocd/project-production.yaml
+```
+
+**A volume that stays `Pending` is normal here.** The claim of the backup of production is used only by the CronJob, once a
+day, and the storage of k3s (`local-path`) creates the volume when a pod first uses it. ArgoCD reads a `Pending` claim as
+"not ready" and the application would stay `Progressing` for ever.
+[../argocd/argocd-cm-pvc-health.yaml](../argocd/argocd-cm-pvc-health.yaml) teaches ArgoCD that `Pending` is fine for claims.
+(Applying it also showed that the file must keep the labels of `argocd-cm`, or the controller fails with "configmap
+argocd-cm not found"; they are in the file.)
+
+### Tested
+
+In the k3d cluster with the test Git server (below), simulating what the workflows do:
+
+| Check | Result |
+| ----- | ------ |
+| Both applications | `Synced` / `Healthy`, each in its namespace, with its own database and volume |
+| Todo created in staging | the broadcaster of staging only logged `Message (not forwarded)`; the chat of production got nothing |
+| Todo created in production | the chat got `{"user":"bot","message":"A todo was created: ..."}`; staging saw nothing |
+| Backup | only production has the `todo-backup` CronJob and its volume; a run saved a dump with the todo of production |
+| Names | `staging.localhost` and `production.localhost` show their own todos |
+| **A commit to `main`** (new tags for staging and the backend with 2 replicas in the manifests) | staging took the new images and the 2 replicas; **production did not change** (`production` at its old commit) |
+| **The tag** (the `production` branch moved to the tagged commit + the tags) | production took the images `v1.0.0` and the 2 replicas of the tagged commit |
+
 ## Test Git server
 
 [test-git-server](test-git-server/) is a Git server (nginx + `git-http-backend`, no authentication, only for
@@ -141,4 +226,5 @@ makes ArgoCD look at Git right away instead of waiting for the next poll.
 ## Exercises
 
 - 4.7
-- 4.8
+- 4.8 (first version, only `main`; replaced by the two environments of 4.9)
+- 4.9

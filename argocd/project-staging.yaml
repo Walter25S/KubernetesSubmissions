@@ -1,0 +1,20 @@
+# STAGING (exercise 4.9): follows the main branch, so EVERY commit to main is deployed here.
+#   kubectl apply -n argocd -f argocd/project-staging.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: project-staging
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Walter25S/KubernetesSubmissions
+    targetRevision: main
+    path: gitops/overlays/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

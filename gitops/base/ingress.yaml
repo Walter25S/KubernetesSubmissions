@@ -1,0 +1,19 @@
+# How the environment is reached from outside the local cluster: by name, so that staging and production can
+# share the port 8081 of k3d. The host is set by each overlay.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: todo-app-ingress
+  namespace: project
+spec:
+  rules:
+    - host: example.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: todo-app-svc
+                port:
+                  number: 2345

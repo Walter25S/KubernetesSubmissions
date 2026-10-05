@@ -1,0 +1,40 @@
+# Teaches ArgoCD that a PersistentVolumeClaim in "Pending" is normal when the storage class provisions the volume
+# only when a pod uses it (volumeBindingMode: WaitForFirstConsumer, which is what k3s' local-path does).
+# By default ArgoCD says "Progressing" and the application never becomes Healthy: the claim of the backup of
+# production (exercise 4.9) is only used by the CronJob, once a day. Bound and Lost keep their normal meaning.
+#
+#   kubectl apply -n argocd --server-side --force-conflicts -f argocd/argocd-cm-pvc-health.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  # ArgoCD finds its ConfigMap by these labels. They have to be here: applying this file replaces what the
+  # previous apply set, so without them the labels disappear and the controller stops with
+  # "configmap argocd-cm not found".
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  resource.customizations.health.PersistentVolumeClaim: |
+    hs = {}
+    if obj.status ~= nil and obj.status.phase ~= nil then
+      if obj.status.phase == "Pending" then
+        hs.status = "Healthy"
+        hs.message = "Pending until a pod uses it (WaitForFirstConsumer)"
+        return hs
+      end
+      if obj.status.phase == "Bound" then
+        hs.status = "Healthy"
+        hs.message = obj.status.phase
+        return hs
+      end
+      if obj.status.phase == "Lost" then
+        hs.status = "Degraded"
+        hs.message = obj.status.phase
+        return hs
+      end
+    end
+    hs.status = "Progressing"
+    hs.message = "Waiting for the claim"
+    return hs

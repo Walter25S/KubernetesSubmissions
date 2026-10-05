@@ -29,7 +29,8 @@ const messageFormat = required('MESSAGE_FORMAT');
 const requestTimeoutMs = requiredInt('REQUEST_TIMEOUT_MS');
 // Where the messages are sent. In Discord or Slack the URL contains a token, so it comes from a
 // Secret and it is never printed.
-const webhookUrl = required('WEBHOOK_URL');
+// (not needed with MESSAGE_FORMAT=log, where the messages are not sent anywhere)
+const webhookUrl = messageFormat === 'log' ? '' : required('WEBHOOK_URL');
 
 const jsonCodec = JSONCodec();
 let subscribed = false;
@@ -42,8 +43,11 @@ const FORMATS = {
   // allowed_mentions stops a todo that contains @everyone from pinging the whole channel
   discord: (text) => ({ username: 'bot', content: text, allowed_mentions: { parse: [] } }),
   slack: (text) => ({ text }),
+  // "log": the messages are only written to the log of the broadcaster and are NOT forwarded to any
+  // external service. It is what the staging environment uses (exercise 4.9).
+  log: null,
 };
-if (!FORMATS[messageFormat]) {
+if (!(messageFormat in FORMATS)) {
   console.error(`MESSAGE_FORMAT must be one of: ${Object.keys(FORMATS).join(', ')}`);
   process.exit(1);
 }
@@ -59,6 +63,9 @@ const describe = ({ event, todo }) => {
 };
 
 const send = async (text) => {
+  if (messageFormat === 'log') {
+    return;
+  }
   const response = await fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -86,7 +93,7 @@ const handle = async (message) => {
   // No retry: a retry could deliver the message twice, and a lost message is acceptable.
   try {
     await send(text);
-    console.log(`Sent: ${text}`);
+    console.log(messageFormat === 'log' ? `Message (not forwarded): ${text}` : `Sent: ${text}`);
   } catch (err) {
     console.error(`Could not send "${text}": ${err.message}`);
   }

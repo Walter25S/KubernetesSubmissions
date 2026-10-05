@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The backup of the database for a cluster that is not GKE (exercise 4.9): the dump is saved in a volume of the
+# cluster. The version of GKE, which uploads it to Google Cloud Storage, is in ../ (exercise 3.10).
+resources:
+  - pvc.yaml
+  - cronjob.yaml

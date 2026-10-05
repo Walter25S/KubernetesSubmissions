@@ -1,0 +1,23 @@
+# PRODUCTION (exercise 4.9): follows the branch "production", which is only moved by the workflow that runs
+# when a tag is pushed (.github/workflows/gitops-production.yaml). A commit to main that is not tagged
+# does not reach production, even if it changes the manifests.
+#   kubectl apply -n argocd -f argocd/project-production.yaml
+# The branch has to exist: create it once with  git push origin main:refs/heads/production
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: project-production
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Walter25S/KubernetesSubmissions
+    targetRevision: production
+    path: gitops/overlays/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

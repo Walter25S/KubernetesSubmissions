@@ -1,0 +1,60 @@
+name: GitOps production
+
+# A tag, for example v1.0.0, is deployed to PRODUCTION (exercise 4.9). The workflow builds the four images from
+# the tagged commit, publishes them tagged with the name of the tag, and then moves the branch "production" to that
+# commit plus one commit that writes the tags in the overlay of production. ArgoCD (application
+# project-production) follows that branch, so only tagged commits reach production.
+#
+#   git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # to push the branch "production"
+
+concurrency:
+  group: gitops-production
+  cancel-in-progress: false
+
+jobs:
+  build-publish-release:
+    name: Build, push, release to production
+    runs-on: ubuntu-latest
+    steps:
+      # the commit of the tag
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and publish the images
+        run: |-
+          for IMAGE in todo-app todo-backend todo-cronjob broadcaster; do
+            docker build --tag "wallas25/$IMAGE:$GITHUB_REF_NAME" "${IMAGE//-/_}"
+            docker push "wallas25/$IMAGE:$GITHUB_REF_NAME"
+          done
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v3
+
+      # production = the tagged commit + one commit with the image tags. The branch is rebuilt in every release,
+      # so it is pushed with --force: it only points ArgoCD to what is in production.
+      - name: Move the production branch
+        run: |-
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C production
+          cd gitops/overlays/production
+          for IMAGE in todo-app todo-backend todo-cronjob broadcaster; do
+            kustomize edit set image "wallas25/$IMAGE=wallas25/$IMAGE:$GITHUB_REF_NAME"
+          done
+          cd ../../..
+          git add gitops/overlays/production/kustomization.yaml
+          git commit -m "production: release $GITHUB_REF_NAME"
+          git push --force origin production

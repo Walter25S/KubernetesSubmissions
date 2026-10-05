@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# PRODUCTION (exercise 4.9): a commit with a tag is deployed here (the CI workflow
+# .github/workflows/gitops-production.yaml, started by the tag, writes the image tags below and commits them).
+# Differences with staging:
+#   - the broadcaster forwards the messages to the external chat service (the URL is in the Secret
+#     "broadcaster-webhook", created by hand)
+#   - the database IS backed up every day (../../../todo_backup/local)
+namespace: production
+
+resources:
+  - ../../base
+  - ../../../todo_backup/local
+
+patches:
+  - target:
+      kind: Ingress
+      name: todo-app-ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: production.localhost
+  - path: nats-subject.yaml
+
+images:
+  - name: wallas25/todo-app
+    newTag: "4.5"
+  - name: wallas25/todo-backend
+    newTag: "4.6"
+  - name: wallas25/todo-cronjob
+    newTag: "2.9"
+  - name: wallas25/broadcaster
+    newTag: "4.9"

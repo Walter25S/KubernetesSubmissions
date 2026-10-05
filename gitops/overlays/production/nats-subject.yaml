@@ -1,0 +1,16 @@
+# The subject of production, apart from the one of staging, for the backend and for the broadcaster.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-backend-config
+  namespace: project
+data:
+  NATS_SUBJECT: todos.production
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: broadcaster-config
+  namespace: project
+data:
+  NATS_SUBJECT: todos.production

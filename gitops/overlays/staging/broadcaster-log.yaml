@@ -1,0 +1,10 @@
+# In staging the broadcaster only writes the messages to its log: MESSAGE_FORMAT "log" does not need the URL of
+# a chat service and sends nothing.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: broadcaster-config
+  namespace: project
+data:
+  NATS_SUBJECT: todos.staging
+  MESSAGE_FORMAT: log

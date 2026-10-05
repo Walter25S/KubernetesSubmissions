@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: todo-backup
+  namespace: project
+spec:
+  schedule: "0 3 * * *" # once per 24 hours, at 03:00 UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: backups
+          containers:
+            - name: dump
+              image: postgres:16-alpine
+              command: ["sh", "-c"]
+              args:
+                - |
+                  set -e
+                  FILE="/backups/todos-$(date -u +%Y-%m-%dT%H-%M-%SZ).sql.gz"
+                  pg_dump --no-owner --clean --if-exists | gzip > "$FILE"
+                  ls -l "$FILE"
+                  # keep the backups of the last 7 days
+                  find /backups -name 'todos-*.sql.gz' -mtime +7 -delete
+              env:
+                - name: PGHOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: todo-backend-config
+                      key: DB_HOST
+                - name: PGPORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: todo-backend-config
+                      key: DB_PORT
+                - name: PGDATABASE
+                  valueFrom:
+                    configMapKeyRef:
+                      name: todo-backend-config
+                      key: DB_NAME
+                - name: PGUSER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: todo-backend-config
+                      key: DB_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi

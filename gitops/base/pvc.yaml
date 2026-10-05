@@ -1,0 +1,13 @@
+# The claim of the picture cache of todo_app. No PersistentVolume is created by hand: the storage class of the
+# cluster (local-path in k3s) provisions it, so that every environment gets its own volume.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-claim
+  namespace: project
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

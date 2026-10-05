@@ -1,0 +1,10 @@
+# Where the backend publishes the events of the todos. The subject is different in each environment (see the
+# overlays) so that the messages of staging never reach the broadcaster of production.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-backend-config
+  namespace: project
+data:
+  NATS_URL: nats://my-nats.nats.svc.cluster.local:4222
+  NATS_SUBJECT: todos
