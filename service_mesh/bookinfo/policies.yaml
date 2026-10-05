@@ -1,0 +1,77 @@
+# The steps of the Istio ambient "getting started" guide for Bookinfo (exercise 5.2), as manifests.
+#
+# 1. Layer 4 policy (enforced by ztunnel): only the Istio gateway may call productpage
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: productpage-viewer
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: productpage
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/default/sa/bookinfo-gateway-istio
+---
+# 2. The waypoint: the proxy that does layer 7 for the namespace (enabled with the label
+#    istio.io/use-waypoint=waypoint on the namespace)
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: waypoint
+  namespace: default
+  labels:
+    istio.io/waypoint-for: service
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
+---
+# 3. Layer 7 policy (enforced by the waypoint): the gateway and the "curl" pod may only GET productpage
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: productpage-viewer-l7
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      group: ""
+      name: productpage
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/default/sa/bookinfo-gateway-istio
+              - cluster.local/ns/default/sa/curl
+      to:
+        - operation:
+            methods: ["GET"]
+---
+# 4. Traffic split of the reviews service: 90 % to v1 and 10 % to v2 (applied by the waypoint)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: reviews
+  namespace: default
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: reviews
+      port: 9080
+  rules:
+    - backendRefs:
+        - name: reviews-v1
+          port: 9080
+          weight: 90
+        - name: reviews-v2
+          port: 9080
+          weight: 10
